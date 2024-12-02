@@ -6,6 +6,26 @@
 
 {% block body %}
 <main>
-    Someother Information
+    <form method="get">
+        <select name="person">
+            <option disabled selected>Name</option>
+            {% for person in people %}
+                <option value="{{ person['id'] }}" name="person">{{ person['name'] }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="Search">
+    </form>
+    <table>
+        <tr>
+            <th>Day</th>
+            <th>Person</th>
+        </tr>
+        {% for day in days %}
+        <tr>
+            <td>{{ day['date'] }}</td>
+            <td>{{ day['name'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
 </main>
 {% endblock %}
