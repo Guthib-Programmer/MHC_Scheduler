@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>MHC Scheduler</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+        {% block head %}{% endblock %}
+    </head>
+    <body>
+        <nav> <!-- Navbar -->
+            <a href="./">MHC Scheduler</a>
+            <a href="admin">Admin</a>
+        </nav>
+        {% block body %}
+        {% endblock %}
+    </body>
+</html>
