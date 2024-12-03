@@ -7,7 +7,8 @@
 {% block body %}
 <main>
     <form method="get">
-        <select name="person">
+        <label for="filter">Filter: </label>
+        <select name="person" id="filter">
             <option disabled selected>Name</option>
             {% for person in people %}
                 <option value="{{ person['id'] }}" name="person">{{ person['name'] }}</option>

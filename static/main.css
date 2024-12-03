@@ -10,7 +10,7 @@ nav
     font-size: 2rem;
     display: flex;
     flex-direction: row;
-    justify-content: space-between;   
+    justify-content: space-between;
 }
 
 nav a 
@@ -23,4 +23,52 @@ nav a
 nav a:hover
 {
     background-color: rgb(223, 223, 223);
+}
+
+label,
+select,
+input
+{
+    display: inline-block;
+    font-size: 1.25rem;
+    padding: 3px 10px;
+    border-radius: 10px;
+}
+
+label
+{
+    font-weight: bold;
+    font-size: 1.4rem;
+}
+
+select,
+input
+{
+    background-color: white;
+    border: 1px solid black;
+}
+
+form
+{
+    margin: 10px 0 20px 0;
+}
+
+table
+{
+    width: 100%;
+}
+
+th,
+td
+{
+    padding: 5px;
+    font-size: 1.25rem;
+}
+
+table,
+th,
+td
+{
+    border: 1px solid black;
+    border-collapse: collapse;
 }
