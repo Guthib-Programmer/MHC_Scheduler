@@ -5,6 +5,16 @@
 {% endblock %}
 
 {% block body %}
+<nav> <!-- Navbar -->
+    <a href="./">MHC Scheduler</a>
+    <div>
+        {% if controlText is defined %}
+        <a href="{{ controlLink }}">{{ controlText }}</a>
+        {% endif %}
+        <a href="{{ accountLink }}">Account</a>
+    </div>
+    
+</nav>
 <main>
     <form method="get">
         <label for="filter">Filter: </label>
@@ -20,11 +30,13 @@
         <tr>
             <th>Day</th>
             <th>Person</th>
+            <th>Crisis</th>
         </tr>
         {% for day in days %}
         <tr>
             <td>{{ day['date'] }}</td>
-            <td>{{ day['name'] }}</td>
+            <td>{{ day['oncall'] }}</td>
+            <td>{{ day['crisis'] }}</td>
         </tr>
         {% endfor %}
     </table>

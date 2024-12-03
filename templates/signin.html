@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block body %}
+<nav> <!-- Navbar -->
+    <a href="./">MHC Scheduler</a>
+    <a href="{{ accountLink }}">Account</a>
+</nav>
+<main>
+    <form class="adminForm" action="./signin" method="post">
+        <p style="color:red; text-align: center;">{{ message }}</p>
+        <input autocomplete="off" type="text" name="name" placeholder="Name">
+        <input autocomplete="off" type="password" name="password" placeholder="Password">
+        <input type="submit" value="Log In">
+    </form>
+</main>
+{% endblock %}
