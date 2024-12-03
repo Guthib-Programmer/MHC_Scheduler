@@ -6,6 +6,9 @@
 
 {% block body %}
 <main>
-    Admin
+    <form class="adminForm" action="admin" method="post">
+        <input type="password" name="password" placeholder="Password">
+        <input type="submit" value="Log In">
+    </form>
 </main>
 {% endblock %}

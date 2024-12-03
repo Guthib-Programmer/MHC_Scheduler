@@ -72,3 +72,19 @@ td
     border: 1px solid black;
     border-collapse: collapse;
 }
+
+.adminForm
+{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 80vh;
+}
+
+.adminForm input
+{
+    width: 30%;
+    margin: 5px auto;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+}
