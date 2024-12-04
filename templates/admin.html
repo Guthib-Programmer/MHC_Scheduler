@@ -7,9 +7,34 @@
 {% block body %}
 <nav> <!-- Navbar -->
     <a href="./">MHC Scheduler</a>
-    <a href="{{ accountLink }}">Account</a>
+    <a href="signin">Account</a>
 </nav>
 <main>
     <h1>Admin</h1>
+    <a href="#">Request New Swap</a>
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Their Day</th>
+            <th>Your Day</th>
+            <th>Oncall/Crisis</th>
+            <th>Approve</th>
+            <th>Deny</th>
+        </tr>
+        {% for day in days %}
+        <tr>
+            <td>{{ day['name'] }}</td>
+            <td>{{ day['day1Name'] }}</td>
+            <td>{{ day['day2Name'] }}</td>
+            {% if day['crisis'] == 0 %}
+            <td>Oncall</td>
+            {% else %}
+            <td>Crisis</td>
+            {% endif %}
+            <td><a href="?approve={{ day['id'] }}">Approve</a></td>
+            <td><a href="?deny={{ day['id'] }}">Deny</a></td>
+        </tr>
+        {% endfor %}
+    </table>
 </main>
 {% endblock %}

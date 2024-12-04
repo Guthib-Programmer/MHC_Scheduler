@@ -63,6 +63,8 @@ def admin():
             return render_template('signin.html', accountLink="#", message="Incorrect Username or Password")
         peopleData = [dict(row) for row in rows]
 
+        con.close()
+
         session['user_id'] = peopleData[0]['id']
         session['name'] = peopleData[0]['name']
         session['password'] = peopleData[0]['password']
@@ -77,9 +79,22 @@ def admin():
 def account():
     if session.get("admin") != None:
         adminPerms = session['admin']
+        personId = session['user_id']
+
+        con = sqlite3.connect("main.db")
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+
+        cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND approved = 0;", (personId, personId))
+        rows = cur.fetchall()
+        daysData = [dict(row) for row in rows]
+
+        con.close()
+
         if adminPerms == 1:
-            return render_template('admin.html')
+
+            return render_template('admin.html', days=daysData)
         else:
-            return render_template('user.html')
+            return render_template('user.html', days=daysData)
     else:
         return redirect("/")
