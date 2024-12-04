@@ -85,6 +85,69 @@ def account():
         con.row_factory = sqlite3.Row
         cur = con.cursor()
 
+        if request.args.get("approve"):
+            requestId = request.args.get("approve")
+            if adminPerms == 1:
+                cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
+                day1 = cur.fetchone()
+                day1Person = list(day1)
+                cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                con.commit()
+                cur.close()
+                return redirect("./account")
+            else:
+                cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
+                row = cur.fetchone()
+                if row:
+                    rowData = list(row)
+                    if rowData[0] == personId:
+                        cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
+                        day1 = cur.fetchone()
+                        day1Person = list(day1)
+                        cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                        cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                        cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?;", (personId, requestId))
+                        con.commit()
+                        cur.close()
+                        return redirect("./account")
+                    else:
+                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                        con.commit()
+                        cur.close()
+                        return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
+                else:
+                    cur.close()
+                    return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
+        elif request.args.get("deny"):
+            requestId = request.args.get("deny")
+            if adminPerms == 1:
+                cur.execute("UPDATE requests SET approved = 2, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                con.commit()
+                cur.close()
+                return redirect("./account")
+            else:
+                cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
+                row = cur.fetchone()
+                if row:
+                    rowData = list(row)
+                    if rowData[0] == personId:
+                        cur.execute("UPDATE requests SET approved = 2, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                        con.commit()
+                        cur.close()
+                        return redirect("./account")
+                    else:
+                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                        con.commit()
+                        cur.close()
+                        return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
+                else:
+                    cur.close()
+                    return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
+
         cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND approved = 0;", (personId, personId))
         rows = cur.fetchall()
         daysData = [dict(row) for row in rows]
