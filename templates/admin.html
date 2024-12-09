@@ -10,8 +10,11 @@
     <a href="signin">Account</a>
 </nav>
 <main>
-    <h1>Admin</h1>
-    <a href="#">Request New Swap</a>
+    <div class="userSubnav">
+        <h1>Your Pending Swaps</h1>
+        <a href="?swap=0">Request New Swap</a>
+    </div>
+    {% if days|length > 0 %}
     <table>
         <tr>
             <th>Name</th>
@@ -36,5 +39,37 @@
         </tr>
         {% endfor %}
     </table>
+    {% else %}
+    You have no pending swap requests
+    {% endif %}
 </main>
+
+<div>
+    <hr>
+    <div class="adminExpand">
+        <h2>Pending Swaps (##)</h2>
+        <a href="#">Expand</a><br>
+    </div>
+    <hr>
+    <div class="adminExpand">
+        <h2>Users (##)</h2>
+        <a href="#">Expand</a><br>
+    </div>
+    <hr>
+    <div class="adminExpand">
+        <h2>Suspicious Activity (## Unread)</h2>
+        <a href="#">Expand</a><br>
+    </div>
+    <hr>
+    <div class="adminExpand">
+        <h2>Swap History</h2>
+        <a href="#">Expand</a><br>
+    </div>
+    <hr>
+    <div class="adminExpand">
+        <h2>Oncall History</h2>
+        <a href="#">Expand</a><br>
+    </div>
+    <hr>
+</div>
 {% endblock %}

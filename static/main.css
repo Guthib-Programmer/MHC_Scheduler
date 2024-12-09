@@ -117,3 +117,24 @@ td
 {
     background-color: rgb(223, 223, 223);
 }
+
+.adminExpand
+{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.adminExpand a
+{
+    text-decoration: none;
+    color: black;
+    font-size: 1.4rem;
+    padding: 10px;
+    margin-left: 10px;
+}
+
+.adminExpand a:hover
+{
+    background-color: rgb(223, 223, 223);
+}

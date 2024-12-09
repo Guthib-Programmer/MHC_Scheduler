@@ -14,7 +14,7 @@
         <h1>Pending Swaps</h1>
         <a href="?swap=0">Request New Swap</a>
     </div>
-    
+    {% if days|length > 0 %}
     <table>
         <tr>
             <th>Name</th>
@@ -39,5 +39,8 @@
         </tr>
         {% endfor %}
     </table>
+    {% else %}
+    You have no pending swap requests
+    {% endif %}
 </main>
 {% endblock %}
