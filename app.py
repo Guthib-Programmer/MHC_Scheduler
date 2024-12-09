@@ -45,7 +45,7 @@ def index():
         return render_template('index.html', people=peopleData, days=daysData, accountLink="./signin")
 
 @app.route("/signin", methods=["GET", "POST"])
-def admin():
+def signin():
     if request.method == "POST":
         if not request.form.get("password") or not request.form.get("name"):
             return "Not all fields have been filled"
@@ -75,89 +75,170 @@ def admin():
     else:
         return render_template('signin.html', accountLink="#")
     
-@app.route("/account")
+@app.route("/account", methods=['GET', 'POST'])
 def account():
     if session.get("admin") != None:
         adminPerms = session['admin']
         personId = session['user_id']
 
-        con = sqlite3.connect("main.db")
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
+        if request.method == "POST":
+            if not request.form.get("daySelect"):
+                return "Empty Field"
+            
+            selected_days = request.form.getlist('daySelect')
+            if len(selected_days) != 2:
+                return "Wrong number of days selected"
+            
+            con = sqlite3.connect("main.db")
+            con.row_factory = sqlite3.Row
+            cur = con.cursor()
 
-        if request.args.get("approve"):
-            requestId = request.args.get("approve")
-            if adminPerms == 1:
-                cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
-                day1 = cur.fetchone()
-                day1Person = list(day1)
-                cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
-                cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
-                cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
-                con.commit()
-                cur.close()
-                return redirect("./account")
+            cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[0],))
+            dayData = cur.fetchone()
+            dayDataList = dict(dayData)
+
+            selfDay = False
+            day1Id = 0
+            day2Id = 0
+
+            if request.form.get("crisis"):
+                if dayDataList['crisis_id'] == personId:
+                    selfDay = True
+                    day1Id = selected_days[0]
             else:
-                cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
-                row = cur.fetchone()
-                if row:
-                    rowData = list(row)
-                    if rowData[0] == personId:
-                        cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
-                        day1 = cur.fetchone()
-                        day1Person = list(day1)
-                        cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
-                        cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
-                        cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?;", (personId, requestId))
-                        con.commit()
-                        cur.close()
-                        return redirect("./account")
+                if dayDataList['person_id'] == personId:
+                    selfDay = True
+                    day1Id = selected_days[0]
+
+            cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[1],))
+            dayData = cur.fetchone()
+            dayDataList = dict(dayData)
+
+            if request.form.get("crisis"): # TODO: Change return statements to return to a error page
+                if dayDataList['crisis_id'] == personId:
+                    if selfDay:
+                        return "Cannot select two days of your own"
                     else:
-                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
-                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
-                        con.commit()
-                        cur.close()
-                        return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
+                        day1Id = selected_days[1]
+                        day2Id = selected_days[0]
                 else:
-                    cur.close()
-                    return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
-        elif request.args.get("deny"):
-            requestId = request.args.get("deny")
-            if adminPerms == 1:
-                cur.execute("UPDATE requests SET approved = 2, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
-                con.commit()
-                cur.close()
-                return redirect("./account")
+                    if selfDay:
+                        day2Id = selected_days[1]
+                    else:
+                        return "One of the days must be your own"
             else:
-                cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
-                row = cur.fetchone()
-                if row:
-                    rowData = list(row)
-                    if rowData[0] == personId:
-                        cur.execute("UPDATE requests SET approved = 2, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
-                        con.commit()
-                        cur.close()
-                        return redirect("./account")
+                if dayDataList['person_id'] == personId:
+                    if selfDay:
+                        return "Cannot select two days of your own"
                     else:
-                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
-                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
-                        con.commit()
-                        cur.close()
-                        return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
+                        day1Id = selected_days[1]
+                        day2Id = selected_days[0]
                 else:
-                    cur.close()
-                    return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
+                    if selfDay:
+                        day2Id = selected_days[1]
+                    else:
+                        return "One of the days must be your own"
 
-        cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND approved = 0;", (personId, personId))
-        rows = cur.fetchall()
-        daysData = [dict(row) for row in rows]
+            if request.form.get("crisis"):
+                cur.execute("INSERT INTO requests (day1, day2, crisis) VALUES (?,?,1)", (day1Id, day2Id))
+            else:
+                cur.execute("INSERT INTO requests (day1, day2, crisis) VALUES (?,?,0)", (day1Id, day2Id))
 
-        con.close()
+            con.commit()
+            con.close()
 
-        if adminPerms == 1:
-
-            return render_template('admin.html', days=daysData)
+            return "Something"
         else:
-            return render_template('user.html', days=daysData)
+            con = sqlite3.connect("main.db")
+            con.row_factory = sqlite3.Row
+            cur = con.cursor()
+            
+            if request.args.get("approve"):
+                requestId = request.args.get("approve")
+                if adminPerms == 1:
+                    cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
+                    day1 = cur.fetchone()
+                    day1Person = list(day1)
+                    cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                    cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                    cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                    con.commit()
+                    cur.close()
+                    return redirect("./account")
+                else:
+                    cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
+                    row = cur.fetchone()
+                    if row:
+                        rowData = list(row)
+                        if rowData[0] == personId:
+                            cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
+                            day1 = cur.fetchone()
+                            day1Person = list(day1)
+                            cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                            cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                            cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?;", (personId, requestId))
+                            con.commit()
+                            cur.close()
+                            return redirect("./account")
+                        else:
+                            attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
+                            cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                            con.commit()
+                            cur.close()
+                            return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
+                    else:
+                        cur.close()
+                        return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
+            elif request.args.get("deny"):
+
+                requestId = request.args.get("deny")
+                if adminPerms == 1:
+                    cur.execute("UPDATE requests SET approved = 2, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                    con.commit()
+                    cur.close()
+                    return redirect("./account")
+                else:
+                    cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
+                    row = cur.fetchone()
+                    if row:
+                        rowData = list(row)
+                        if rowData[0] == personId:
+                            cur.execute("UPDATE requests SET approved = 2, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                            con.commit()
+                            cur.close()
+                            return redirect("./account")
+                        else:
+                            attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
+                            cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                            con.commit()
+                            cur.close()
+                            return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
+                    else:
+                        cur.close()
+                        return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
+
+            if request.args.get("swap"):
+
+                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 25;")
+                rows = cur.fetchall()
+                daysData = [dict(row) for row in rows]
+
+                con.close()
+
+                return render_template("swap.html", days=daysData)
+            
+            cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND approved = 0;", (personId, personId))
+            rows = cur.fetchall()
+            daysData = [dict(row) for row in rows]
+
+            con.close()
+
+            
+
+            if adminPerms == 1:
+
+                return render_template('admin.html', days=daysData)
+            else:
+                return render_template('user.html', days=daysData)
     else:
         return redirect("/")

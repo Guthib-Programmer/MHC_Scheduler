@@ -54,9 +54,16 @@ form
     margin: 10px 0 20px 0;
 }
 
+form input[type='checkbox']
+{
+    height: 17px;
+    width: 17px;
+}
+
 table
 {
     width: 100%;
+    margin: 10px 0;
 }
 
 th,
@@ -88,4 +95,25 @@ td
     margin: 5px auto;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
+}
+
+.userSubnav
+{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.userSubnav a
+{
+    text-decoration: none;
+    color: black;
+    font-size: 1.4rem;
+    padding: 10px;
+}
+
+.userSubnav a:hover
+{
+    background-color: rgb(223, 223, 223);
 }

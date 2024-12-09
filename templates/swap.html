@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block body %}
+<nav> <!-- Navbar -->
+    <a href="./">MHC Scheduler</a>
+    <div>
+        <a href="./account">Swaps</a>
+        <a href="signin">Account</a>
+    </div>
+    
+</nav>
+<main>
+    <div class="userSubnav">
+        <h1>Request Swap</h1>
+    </div>
+    
+    <form action="#" method="post">
+        <input type="checkbox" name="crisis" id="crisis"><label for="crisis">Swap Crisis</label><br>
+        <table>
+            <tr>
+                <th>Select</th>
+                <th>Day</th>
+                <th>Oncall</th>
+                <th>Crisis</th>
+            </tr>
+            {% for day in days %}
+            <tr>
+                <td><input type="checkbox" name="daySelect" value="{{ day['id'] }}"></td> <!-- TODO: Disable and enable checkboxes as they are valid input -->
+                <td>{{ day['date'] }}</td>
+                <td>{{ day['p1Name'] }}</td>
+                <td>{{ day['p2Name'] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <input type="submit" value="Request Swap" name="swapRequest">
+    </form>
+
+</main>
+{% endblock %}
