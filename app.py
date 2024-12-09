@@ -8,6 +8,8 @@ app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
+# TODO: Use appscheduler to run background processes
+
 @app.after_request
 def add_header(response):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0"
@@ -227,18 +229,43 @@ def account():
 
                 return render_template("swap.html", days=daysData)
             
-            cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND approved = 0;", (personId, personId))
+            cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND (approved IS NULL OR approved NOT IN (1,2));", (personId, personId))
             rows = cur.fetchall()
             daysData = [dict(row) for row in rows]
-
-            con.close()
 
             
 
             if adminPerms == 1:
 
+                if request.args.get("pending"):
+                    cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE (approved IS NULL OR approved NOT IN (1,2));")
+                    rows = cur.fetchall()
+                    pendingData = [dict(row) for row in rows]
+                    con.close()
+                    return render_template('admin.html', days=daysData, pendingSwaps=pendingData)
+                elif request.args.get("suspicious"):
+                    cur.execute("SELECT suspicious.type, suspicious.details, suspicious.timestamp, people.name FROM suspicious JOIN people ON suspicious.person_id = people.id LIMIT 25;")
+                    rows = cur.fetchall()
+                    suspiciousData = [dict(row) for row in rows]
+                    con.close()
+                    return render_template('admin.html', days=daysData, suspicious=suspiciousData)
+                elif request.args.get("swapHistory"):
+                    cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name, requests.approved, requests.timestamp FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE approved IN (1,2);")
+                    rows = cur.fetchall()
+                    swapHistory = [dict(row) for row in rows]
+                    con.close()
+                    return render_template('admin.html', days=daysData, swapHistory=swapHistory)
+                elif request.args.get("oncallHistory"):
+                    cur.execute("SELECT days.date, p1.name AS person1, p2.name AS person2 FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE completed = 1 LIMIT 25;")
+                    rows = cur.fetchall()
+                    oncallHistory = [dict(row) for row in rows]
+                    con.close()
+                    return render_template('admin.html', days=daysData, oncallHistory=oncallHistory)
+
+                con.close()
                 return render_template('admin.html', days=daysData)
             else:
+                con.close()
                 return render_template('user.html', days=daysData)
     else:
         return redirect("/")
