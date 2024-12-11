@@ -4,6 +4,14 @@ body
     padding: 0 10%;
 }
 
+main.editUser
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 90vh;
+}
+
 nav 
 {
     color: black;
@@ -12,6 +20,7 @@ nav
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    height: 6vh;
 }
 
 nav a 
@@ -58,6 +67,32 @@ form input[type='checkbox']
 {
     height: 17px;
     width: 17px;
+}
+
+form.editUser
+{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 30vw;
+    margin: auto;
+}
+
+form input
+{
+    margin-bottom: 5px;
+}
+
+form h3
+{
+    font-size: 1.5rem;
+    margin: 3px;
+}
+
+.sessions
+{
+    display: flex;
+    flex-direction: row;
 }
 
 table

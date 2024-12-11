@@ -81,18 +81,53 @@
         <a href="?pending=1">Expand</a><br>
     </div>
     {% endif %}
-
     <hr>
-    <div class="adminExpand"> <!-- TODO: USERS CONTROL PANEL FOR ADMIN -->
+    {% if users is defined %}
+    <div class="adminExpand">
         <h2>Users (##)</h2>
-        <a href="?users">Expand</a><br>
+        <a href="?">Minimize</a><br>
     </div>
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone Number</th>
+            <th>Mobile Provider</th>
+            <th>Sessions</th>
+            <th>Oncall Weight</th>
+            <th>Admin</th>
+            <th>Edit</th>
+        </tr>
+        {% for user in users %}
+        <tr>
+            <td>{{ user['name'] }}</td>
+            <td>{{ user['email'] }}</td>
+            <td>{{ user['number'] }}</td>
+            <td>{{ user['provider' ]}}</td>
+            <td>Sessions</td>
+            <td>{{ user['total_days'] }}</td>
+            {% if user['admin'] == 1 %}
+            <td>Admin</td>
+            {% else %}
+            <td>User</td>
+            {% endif %}
+            <td><a href="./editUser">Edit</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div class="adminExpand">
+        <h2>Users (##)</h2>
+        <a href="?users=1">Expand</a><br>
+    </div>
+    {% endif %}
     <hr>
     {% if suspicious is defined %}
     <div class="adminExpand">
         <h2>Suspicious Activity (## Unread)</h2>
         <a href="?">Minimize</a><br>
     </div>
+    Nothing recorded here is concrete proof that the end-user is trying to hack. It could be a result of bad-programming, end-user mistakes or other.
     <table>
         <tr>
             <th>Name</th>

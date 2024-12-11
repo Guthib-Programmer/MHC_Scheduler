@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block body %}
+<nav> <!-- Navbar -->
+    <a href="./">MHC Scheduler</a>
+    <a href="signin">Account</a>
+</nav>
+<main class="editUser">
+    <form action="./editUser" method="post" class="editUser">
+        <input type="text" name="name" placeholder="Name">
+        <input type="text" name="password" placeholder="Password">
+        <input type="email" name="email" placeholder="Email">
+        <input type="number" name="number" placeholder="Phone Number">
+        <select name="provider">
+            <option value="none" disabled selected>Mobile Provider</option>
+            <option value="2degrees">2Degrees</option>
+            <option value="one">One</option>
+            <option value="skinny">Skinny</option>
+        </select>
+        <h3>Sessions</h3>
+        <div class="sessions">
+            <div>
+                <input type="checkbox" name="sessions" value="mm" id="mm"><label for="mm">Monday Morning</label><br>
+                <input type="checkbox" name="sessions" value="tm" id="tm"><label for="tm">Tuesday Morning</label><br>
+                <input type="checkbox" name="sessions" value="wm" id="wm"><label for="wm">Wednesday Morning</label><br>
+                <input type="checkbox" name="sessions" value="thm" id="thm"><label for="thm">Thursday Morning</label><br>
+                <input type="checkbox" name="sessions" value="fm" id="fm"><label for="fm">Friday Morning</label>
+            </div>
+            <div>
+                <input type="checkbox" name="sessions" value="ma" id="ma"><label for="ma">Monday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="ta" id="ta"><label for="ta">Tuesday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="wa" id="wa"><label for="wa">Wednesday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="tha" id="tha"><label for="tha">Thursday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="fa" id="fa"><label for="fa">Friday Afternoon</label>
+            </div>
+        </div>
+        <input type="number" name="weight" placeholder="Oncall Weight">
+        <span><input type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
+    </form>
+</main>
+{% endblock %}

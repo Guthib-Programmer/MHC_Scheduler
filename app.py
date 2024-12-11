@@ -261,6 +261,12 @@ def account():
                     oncallHistory = [dict(row) for row in rows]
                     con.close()
                     return render_template('admin.html', days=daysData, oncallHistory=oncallHistory)
+                elif request.args.get("users"):
+                    cur.execute("SELECT * FROM people;")
+                    rows = cur.fetchall()
+                    userData = [dict(row) for row in rows]
+                    con.close()
+                    return render_template('admin.html', days=daysData, users=userData)
 
                 con.close()
                 return render_template('admin.html', days=daysData)
@@ -269,3 +275,11 @@ def account():
                 return render_template('user.html', days=daysData)
     else:
         return redirect("/")
+    
+
+@app.route("/editUser", methods=['GET', 'POST'])
+def editUser():
+    if request.method == "POST":
+        return "You Submited a form"
+    else:
+        return render_template('editUser.html')
