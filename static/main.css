@@ -116,6 +116,12 @@ td
     border-collapse: collapse;
 }
 
+table input,
+table form
+{
+    margin: 0;
+}
+
 .adminForm
 {
     display: flex;

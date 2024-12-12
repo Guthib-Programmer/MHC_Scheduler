@@ -1,1 +1,5 @@
 flask
+flask_session
+sqlite3
+os
+json

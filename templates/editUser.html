@@ -13,9 +13,9 @@
     </div>
 </nav>
 <main class="editUser">
-    <form action="./editUser" method="post" class="editUser">
-        {% if user == 0 %}
-
+    {% if user == 0 %}
+    <form action="./editUser?id=0" method="post" class="editUser">
+        <p style="color:red; text-align: center; font-size: 1.5rem;">{{ warn }}</p>
         <input type="hidden" name="new" value="1">
         <input required autocomplete="off" type="text" name="name" placeholder="Name">
         <input required autocomplete="off" type="password" name="password" placeholder="Password"id="password">
@@ -44,7 +44,9 @@
         <span><input type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         <input type="submit" value="Submit">
 
-        {% else %}
+    {% else %}
+    <form action="./editUser?id={{ user['id'] }}" method="post" class="editUser">
+        <p style="color:red; text-align: center; font-size: 1.5rem;">{{ warn }}</p>
         <input type="hidden" name="id" value="{{ user['id'] }}">
         <input required autocomplete="off" type="text" name="name" placeholder="Name" value="{{ user['name'] }}">
         <input required autocomplete="off" type="password" name="password" placeholder="Password" value="{{ user['password'] }}" id="password">

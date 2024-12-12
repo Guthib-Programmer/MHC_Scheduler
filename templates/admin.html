@@ -34,8 +34,18 @@
             {% else %}
             <td>Crisis</td>
             {% endif %}
-            <td><a href="?approve={{ day['id'] }}">Approve</a></td>
-            <td><a href="?deny={{ day['id'] }}">Deny</a></td>
+            <td>
+                <form action="#" method="post">
+                    <input type="hidden" name="id" value="{{ day['id'] }}">
+                    <input type="submit" value="Approve" name="approveSwap">
+                </form>
+            </td>
+            <td>
+                <form action="#" method="post">
+                    <input type="hidden" name="id" value="{{ day['id'] }}">
+                    <input type="submit" value="Deny" name="denySwap">
+                </form>
+            </td>
         </tr>
         {% endfor %}
     </table>
@@ -70,8 +80,18 @@
             {% else %}
             <td>Crisis</td>
             {% endif %}
-            <td><a href="?approve={{ day['id'] }}">Approve</a></td>
-            <td><a href="?deny={{ day['id'] }}">Deny</a></td>
+            <td>
+                <form action="#" method="post">
+                    <input type="hidden" name="id" value="{{ day['id'] }}">
+                    <input type="submit" value="Approve" name="approveSwap">
+                </form>
+            </td>
+            <td>
+                <form action="#" method="post">
+                    <input type="hidden" name="id" value="{{ day['id'] }}">
+                    <input type="submit" value="Deny" name="denySwap">
+                </form>
+            </td>
         </tr>
         {% endfor %}
     </table>
@@ -132,12 +152,22 @@
             <th>Details</th>
             <th>Timestamp</th>
         </tr>
-        {% for person in suspicious %}
+        {% for event in suspicious %}
         <tr>
-            <td>{{ person['name'] }}</td>
-            <td>{{ person['type'] }}</td> <!-- TODO: SET THIS TO LOAD A TYPE NOT NUMBER REPRESENTING TYPE-->
-            <td>{{ person['details'] }}</td>
-            <td>{{ person['timestamp'] }}</td>
+            {% if event['name'] == none %}
+            <td>Unknown</td>
+            {% else %}
+            <td>{{ event['name'] }}</td>
+            {% endif %}
+            {% if event['type'] == 1 %}
+            <td>URL Injection</td>
+            {% elif event['type'] == 2 %}
+            <td>Client Code Manipulation</td>
+            {% else %}
+            <td>Unknown/Other</td>
+            {% endif %}
+            <td>{{ event['details'] }}</td>
+            <td>{{ event['timestamp'] }}</td>
         </tr>
         {% endfor %}
     </table>
@@ -156,6 +186,8 @@
     <table>
         <tr>
             <th>Requester Name</th>
+            <th>Original Person</th> <!-- TODO: Add these fields -->
+            <th>Approved by</th>
             <th>Their Day</th>
             <th>Requested Day</th>
             <th>Oncall/Crisis</th>
@@ -165,6 +197,8 @@
         {% for day in swapHistory %}
         <tr>
             <td>{{ day['name'] }}</td>
+            <td></td>
+            <td></td>
             <td>{{ day['day1Name'] }}</td>
             <td>{{ day['day2Name'] }}</td>
             {% if day['crisis'] == 0 %}
@@ -216,10 +250,22 @@
     </div>
     {% endif %}
     <hr>
-    <div class="adminExpand"> <!-- TODO: SETTINGS FOR ADMIN USERS -->
+    {% if settings is defined %}
+    <div class="adminExpand">
         <h2>Settings</h2>
-        <a href="?settings">Expand</a><br>
+        <a href="?">Minimize</a><br>
     </div>
+    <form action="#" method="post">
+        <label for="scheduleAhead">Weeks to schedule in advance:</label>
+        <input type="number" name="weeks" id="sceduleAhead" value="{{ settings['weeks'] }}">
+        <input type="submit" value="Submit" name="updateWeeks">
+    </form>
+    {% else %}
+    <div class="adminExpand">
+        <h2>Settings</h2>
+        <a href="?settings=1">Expand</a><br>
+    </div>
+    {% endif %}
     <hr>
 </div>
 {% endblock %}
