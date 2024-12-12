@@ -7,10 +7,44 @@
 {% block body %}
 <nav> <!-- Navbar -->
     <a href="./">MHC Scheduler</a>
-    <a href="signin">Account</a>
+    <div>
+        <a href="./account">Admin</a>
+        <a href="./signin">Account</a>
+    </div>
 </nav>
 <main class="editUser">
     <form action="./editUser" method="post" class="editUser">
+        {% if user == 0 %}
+
+        <input type="hidden" name="new" value="1">
+        <input required autocomplete="off" type="text" name="name" placeholder="Name">
+        <input required autocomplete="off" type="password" name="password" placeholder="Password"id="password">
+        <span><input type="checkbox" name="showpassword" id="showPassword" onclick="togglePasswordVisibility()"><label for="showPassword">Show Password</label></span>
+        <input required autocomplete="off" type="email" name="email" placeholder="Email">
+        <input required autocomplete="off" type="number" name="number" placeholder="Phone Number">
+        <h3>Sessions</h3>
+        <div class="sessions">
+            <div>
+                <input type="checkbox" name="sessions" value="1" id="mm"><label for="mm">Monday Morning</label><br>
+                <input type="checkbox" name="sessions" value="4" id="tm"><label for="tm">Tuesday Morning</label><br>
+                <input type="checkbox" name="sessions" value="16" id="wm"><label for="wm">Wednesday Morning</label><br>
+                <input type="checkbox" name="sessions" value="64" id="thm"><label for="thm">Thursday Morning</label><br>
+                <input type="checkbox" name="sessions" value="256" id="fm"><label for="fm">Friday Morning</label><br>
+            </div>
+            <div>
+                <input type="checkbox" name="sessions" value="2" id="ma"><label for="ma">Monday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="8" id="ta"><label for="ta">Tuesday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="32" id="wa"><label for="wa">Wednesday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="128" id="tha"><label for="tha">Thursday Afternoon</label><br>
+                <input type="checkbox" name="sessions" value="512" id="fa"><label for="fa">Friday Afternoon</label>
+            </div>
+        </div>
+        <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
+        <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
+        <span><input type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
+        <input type="submit" value="Submit">
+
+        {% else %}
         <input type="hidden" name="id" value="{{ user['id'] }}">
         <input required autocomplete="off" type="text" name="name" placeholder="Name" value="{{ user['name'] }}">
         <input required autocomplete="off" type="password" name="password" placeholder="Password" value="{{ user['password'] }}" id="password">
@@ -35,7 +69,7 @@
             </div>
         </div>
         <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
-        <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="{{ user['weight']}}">
+        <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
         {% if user['admin'] == 1 %}
         <span><input checked type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         {% else %}
@@ -43,7 +77,7 @@
         {% endif %}
         <input type="submit" value="Submit">
     </form>
-    {{ sessionData }}
+    {% endif %}
 </main>
 <script>
     function togglePasswordVisibility() {

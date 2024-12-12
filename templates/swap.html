@@ -8,7 +8,9 @@
 <nav> <!-- Navbar -->
     <a href="./">MHC Scheduler</a>
     <div>
-        <a href="./account">Swaps</a> <!-- TODO: Set this to rely on variable to say admin as well -->
+        {% if controlText is defined %}
+        <a href="{{ controlLink }}">{{ controlText }}</a>
+        {% endif %}
         <a href="signin">Account</a>
     </div>
     

@@ -227,7 +227,10 @@ def account():
 
                 con.close()
 
-                return render_template("swap.html", days=daysData)
+                if adminPerms == 1:
+                    return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account")
+                else:
+                    return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account")
             
             cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND (approved IS NULL OR approved NOT IN (1,2));", (personId, personId))
             rows = cur.fetchall()
@@ -262,7 +265,7 @@ def account():
                     con.close()
                     return render_template('admin.html', days=daysData, oncallHistory=oncallHistory)
                 elif request.args.get("users"):
-                    cur.execute("SELECT * FROM people;")
+                    cur.execute("SELECT * FROM people ORDER BY admin DESC;")
                     rows = cur.fetchall()
                     userData = [dict(row) for row in rows]
                     con.close()
@@ -286,10 +289,13 @@ def editUser():
     if request.method == "POST":
         # TODO: Process update user form
         # FIELDS: name, password, email, number, sessions[], weight, admin
-        if not request.form.get("id") or not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight"):
+        if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight"):
             return ("Not all fields have been filled")
         
-        userId = request.form.get("id")
+        if not request.form.get("new") and request.form.get("id"):        
+            userId = request.form.get("id")
+        elif not request.form.get and not request.form.get("id"):
+            return ("Not all field have been filled")
         name = request.form.get("name")
         password = request.form.get("password")
         email = request.form.get("email")
@@ -311,9 +317,11 @@ def editUser():
             sessionsNumber += int(sessions[i])
             weight += weightAdd
 
-        
+        if request.form.get("new"):
+            cur.execute("INSERT INTO people (name, password, email, number, sessions, weight, admin, diff, end_diff) VALUES (?,?,?,?,?,?,?,0,0)", (name, password, email, number, sessionsNumber, weight, admin))
+        else:
+            cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, userId))
 
-        cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, userId))
         con.commit()
         con.close()
 
@@ -321,29 +329,27 @@ def editUser():
     else:
         person_id = request.args.get("id")
         if person_id:
+            person_id = int(person_id)
+            userData = 0
+            sessionData = 0
 
-            
+            if person_id != 0:
+                cur.execute("SELECT * FROM people WHERE id = ?;", (person_id,))
+                row = cur.fetchone()
+                userData = dict(row)
+                con.close()
 
-            cur.execute("SELECT * FROM people WHERE id = ?;", (person_id,))
-            row = cur.fetchone()
-            userData = dict(row)
-            con.close()
+                sessionsNumber = userData['sessions']
+                sessionData = {}
+                daysValues = {"fa": 512, "fm": 256, "tha": 128, "thm": 64, "wa": 32, "wm": 16, "ta": 8, "tm": 4, "ma": 2, "mm": 1}
 
-            sessionsNumber = userData['sessions']
-            sessionData = {}
-            daysValues = {"fa": 512, "fm": 256, "tha": 128, "thm": 64, "wa": 32, "wm": 16, "ta": 8, "tm": 4, "ma": 2, "mm": 1}
+                for key in daysValues.keys():
+                    if sessionsNumber >= daysValues[key]:
+                        sessionsNumber -= daysValues[key]
+                        sessionData[key] = "Checked"
+                    else:
+                        sessionData[key] = ""
 
-            for key in daysValues.keys():
-                if sessionsNumber >= daysValues[key]:
-                    sessionsNumber -= daysValues[key]
-                    sessionData[key] = "Checked"
-                else:
-                    sessionData[key] = ""
-
-            if userData['id']:
-                return render_template('editUser.html', user=userData, sessionData=sessionData)
-            else:
-                return redirect("./account")
-        
+            return render_template('editUser.html', user=userData, sessionData=sessionData)
         else:
             return redirect("./account")
