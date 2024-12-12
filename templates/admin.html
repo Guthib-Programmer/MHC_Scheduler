@@ -163,6 +163,11 @@
             <td>URL Injection</td>
             {% elif event['type'] == 2 %}
             <td>Client Code Manipulation</td>
+            {% elif event['type'] == 3 %}
+            <td>
+                Foriegn Post Request<br>
+                or Client Code Manipulation
+            </td>
             {% else %}
             <td>Unknown/Other</td>
             {% endif %}

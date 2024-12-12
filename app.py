@@ -196,15 +196,30 @@ def account():
                 if not request.form.get("id"):
                     return "Something went wrong"
                 requestId = request.form.get("id")
+
+                cur.execute("SELECT crisis FROM requests WHERE id = ?", (requestId))
+                crisisResult = cur.fetchone()
+                crisis = list(crisisResult)[0]
+
                 if adminPerms == 1:
-                    cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
-                    day1 = cur.fetchone()
-                    day1Person = list(day1)
-                    cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
-                    cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
-                    cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
-                    con.commit()
-                    cur.close()
+                    if crisis == 1:
+                        cur.execute("SELECT crisis_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,))
+                        day1 = cur.fetchone()
+                        day1Person = list(day1)
+                        cur.execute("UPDATE days SET crisis_id = (SELECT crisis_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                        cur.execute("UPDATE days SET crisis_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                        cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                        con.commit()
+                        cur.close()
+                    else:
+                        cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,))
+                        day1 = cur.fetchone()
+                        day1Person = list(day1)
+                        cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                        cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                        cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                        con.commit()
+                        cur.close()
                     return redirect("./account")
                 else:
                     cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
@@ -212,24 +227,34 @@ def account():
                     if row:
                         rowData = list(row)
                         if rowData[0] == personId:
-                            cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,)) # TODO Swap crisis if it is crisis to swap
-                            day1 = cur.fetchone()
-                            day1Person = list(day1)
-                            cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
-                            cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
-                            cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?;", (personId, requestId))
-                            con.commit()
-                            cur.close()
+                            if crisis == 1:
+                                cur.execute("SELECT crisis_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,))
+                                day1 = cur.fetchone()
+                                day1Person = list(day1)
+                                cur.execute("UPDATE days SET crisis_id = (SELECT crisis_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                                cur.execute("UPDATE days SET crisis_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                                cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
+                                con.commit()
+                                cur.close()
+                            else:
+                                cur.execute("SELECT person_id from days WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,))
+                                day1 = cur.fetchone()
+                                day1Person = list(day1)
+                                cur.execute("UPDATE days SET person_id = (SELECT person_id from days WHERE id = (SELECT day2 FROM requests WHERE id = ?)) WHERE id = (SELECT day1 FROM requests WHERE id = ?)", (requestId,requestId))
+                                cur.execute("UPDATE days SET person_id = ? WHERE id = (SELECT day2 FROM requests WHERE id = ?)", (day1Person[0],requestId))
+                                cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?;", (personId, requestId))
+                                con.commit()
+                                cur.close()
                             return redirect("./account")
                         else:
-                            attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
-                            cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                            attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to approve a swap request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
+                            cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
                             con.commit()
                             cur.close()
                             return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
                     else:
-                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request that does not exist. User ID: " + personId + ", Request ID: " + requestId
-                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to approve a swap request that does not exist. User ID: " + personId + ", Request ID: " + requestId
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
                         con.commit()
                         cur.close()
                         return "Something went wrong, Error: Could not retrieve a person id from database"
@@ -253,15 +278,15 @@ def account():
                             cur.close()
                             return redirect("./account")
                         else:
-                            attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
-                            cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                            attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to deny a request where they do not have valid permissions to do so. User ID: " + personId + ", Request ID: " + requestId
+                            cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
                             con.commit()
                             cur.close()
                             return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
                     else:
                         cur.close()
-                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request that does not exist. User ID: " + personId + ", Request ID: " + requestId
-                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to deny a request that does not exist. User ID: " + personId + ", Request ID: " + requestId
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
                         con.commit()
                         return "Something went wrong, Error: Could not retrieve a person id from database"
             elif request.form.get("updateWeeks"):
