@@ -189,8 +189,11 @@ def account():
                             cur.close()
                             return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
                     else:
+                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request that does not exist. User ID: " + personId + ", Request ID: " + requestId
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                        con.commit()
                         cur.close()
-                        return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
+                        return "Something went wrong, Error: Could not retrieve a person id from database"
             elif request.args.get("deny"):
 
                 requestId = request.args.get("deny")
@@ -217,7 +220,10 @@ def account():
                             return "Something went wrong, Error: Could not confirm user permission. <a href='../'>Home</a>"
                     else:
                         cur.close()
-                        return "Something went wrong, Error: Could not retrieve a person id from database" # TODO: log in database suspicious activity, possible URL injection attempt
+                        attackDetails = "Thie could be someone trying a URL Injection attack. They have tried to approve a request that does not exist. User ID: " + personId + ", Request ID: " + requestId
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 1, ?)", (personId, attackDetails))
+                        con.commit()
+                        return "Something went wrong, Error: Could not retrieve a person id from database"
 
             if request.args.get("swap"):
 
@@ -287,8 +293,6 @@ def editUser():
     cur = con.cursor()
 
     if request.method == "POST":
-        # TODO: Process update user form
-        # FIELDS: name, password, email, number, sessions[], weight, admin
         if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight"):
             return ("Not all fields have been filled")
         
