@@ -116,7 +116,7 @@ def account():
             dayData = cur.fetchone()
             dayDataList = dict(dayData)
 
-            if request.form.get("crisis"): # TODO: Change return statements to return to a error page
+            if request.form.get("crisis"):
                 if dayDataList['crisis_id'] == personId:
                     if selfDay:
                         return "Cannot select two days of your own"
@@ -279,7 +279,71 @@ def account():
 
 @app.route("/editUser", methods=['GET', 'POST'])
 def editUser():
+    con = sqlite3.connect("main.db")
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
     if request.method == "POST":
-        return "You Submited a form"
+        # TODO: Process update user form
+        # FIELDS: name, password, email, number, sessions[], weight, admin
+        if not request.form.get("id") or not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight"):
+            return ("Not all fields have been filled")
+        
+        userId = request.form.get("id")
+        name = request.form.get("name")
+        password = request.form.get("password")
+        email = request.form.get("email")
+        number = request.form.get("number")
+        sessions = request.form.getlist("sessions")
+        weight = int(request.form.get("weight"))
+        weightAdd = 0
+        admin = 0
+        sessionsNumber = 0
+        
+        if request.form.get("updateWeight"):
+            weight = 0
+            weightAdd = 1
+
+        if request.form.get("admin"):
+            admin = 1
+
+        for i in range(len(sessions)):
+            sessionsNumber += int(sessions[i])
+            weight += weightAdd
+
+        
+
+        cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, userId))
+        con.commit()
+        con.close()
+
+        return redirect("./account?users=1")
     else:
-        return render_template('editUser.html')
+        person_id = request.args.get("id")
+        if person_id:
+
+            
+
+            cur.execute("SELECT * FROM people WHERE id = ?;", (person_id,))
+            row = cur.fetchone()
+            userData = dict(row)
+            con.close()
+
+            sessionsNumber = userData['sessions']
+            sessionData = {}
+            daysValues = {"fa": 512, "fm": 256, "tha": 128, "thm": 64, "wa": 32, "wm": 16, "ta": 8, "tm": 4, "ma": 2, "mm": 1}
+
+            for key in daysValues.keys():
+                if sessionsNumber >= daysValues[key]:
+                    sessionsNumber -= daysValues[key]
+                    sessionData[key] = "Checked"
+                else:
+                    sessionData[key] = ""
+
+            if userData['id']:
+                return render_template('editUser.html', user=userData, sessionData=sessionData)
+            else:
+                return redirect("./account")
+        
+        else:
+            return redirect("./account")

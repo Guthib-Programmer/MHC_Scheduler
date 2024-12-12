@@ -92,8 +92,6 @@
             <th>Name</th>
             <th>Email</th>
             <th>Phone Number</th>
-            <th>Mobile Provider</th>
-            <th>Sessions</th>
             <th>Oncall Weight</th>
             <th>Admin</th>
             <th>Edit</th>
@@ -103,15 +101,13 @@
             <td>{{ user['name'] }}</td>
             <td>{{ user['email'] }}</td>
             <td>{{ user['number'] }}</td>
-            <td>{{ user['provider' ]}}</td>
-            <td>Sessions</td>
-            <td>{{ user['total_days'] }}</td>
+            <td>{{ user['weight'] }}</td>
             {% if user['admin'] == 1 %}
             <td>Admin</td>
             {% else %}
             <td>User</td>
             {% endif %}
-            <td><a href="./editUser">Edit</a></td>
+            <td><a href="./editUser?id={{ user['id'] }}">Edit</a></td>
         </tr>
         {% endfor %}
     </table>

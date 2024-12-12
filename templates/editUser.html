@@ -11,35 +11,48 @@
 </nav>
 <main class="editUser">
     <form action="./editUser" method="post" class="editUser">
-        <input type="text" name="name" placeholder="Name">
-        <input type="text" name="password" placeholder="Password">
-        <input type="email" name="email" placeholder="Email">
-        <input type="number" name="number" placeholder="Phone Number">
-        <select name="provider">
-            <option value="none" disabled selected>Mobile Provider</option>
-            <option value="2degrees">2Degrees</option>
-            <option value="one">One</option>
-            <option value="skinny">Skinny</option>
-        </select>
+        <input type="hidden" name="id" value="{{ user['id'] }}">
+        <input required autocomplete="off" type="text" name="name" placeholder="Name" value="{{ user['name'] }}">
+        <input required autocomplete="off" type="password" name="password" placeholder="Password" value="{{ user['password'] }}" id="password">
+        <span><input type="checkbox" name="showpassword" id="showPassword" onclick="togglePasswordVisibility()"><label for="showPassword">Show Password</label></span>
+        <input required autocomplete="off" type="email" name="email" placeholder="Email" value="{{ user['email'] }}">
+        <input required autocomplete="off" type="number" name="number" placeholder="Phone Number" value="{{ user['number'] }}">
         <h3>Sessions</h3>
         <div class="sessions">
             <div>
-                <input type="checkbox" name="sessions" value="mm" id="mm"><label for="mm">Monday Morning</label><br>
-                <input type="checkbox" name="sessions" value="tm" id="tm"><label for="tm">Tuesday Morning</label><br>
-                <input type="checkbox" name="sessions" value="wm" id="wm"><label for="wm">Wednesday Morning</label><br>
-                <input type="checkbox" name="sessions" value="thm" id="thm"><label for="thm">Thursday Morning</label><br>
-                <input type="checkbox" name="sessions" value="fm" id="fm"><label for="fm">Friday Morning</label>
+                <input {{ sessionData['mm'] }} type="checkbox" name="sessions" value="1" id="mm"><label for="mm">Monday Morning</label><br>
+                <input {{ sessionData['tm'] }} type="checkbox" name="sessions" value="4" id="tm"><label for="tm">Tuesday Morning</label><br>
+                <input {{ sessionData['wm'] }} type="checkbox" name="sessions" value="16" id="wm"><label for="wm">Wednesday Morning</label><br>
+                <input {{ sessionData['thm'] }} type="checkbox" name="sessions" value="64" id="thm"><label for="thm">Thursday Morning</label><br>
+                <input {{ sessionData['fm'] }} type="checkbox" name="sessions" value="256" id="fm"><label for="fm">Friday Morning</label><br>
             </div>
             <div>
-                <input type="checkbox" name="sessions" value="ma" id="ma"><label for="ma">Monday Afternoon</label><br>
-                <input type="checkbox" name="sessions" value="ta" id="ta"><label for="ta">Tuesday Afternoon</label><br>
-                <input type="checkbox" name="sessions" value="wa" id="wa"><label for="wa">Wednesday Afternoon</label><br>
-                <input type="checkbox" name="sessions" value="tha" id="tha"><label for="tha">Thursday Afternoon</label><br>
-                <input type="checkbox" name="sessions" value="fa" id="fa"><label for="fa">Friday Afternoon</label>
+                <input {{ sessionData['ma'] }} type="checkbox" name="sessions" value="2" id="ma"><label for="ma">Monday Afternoon</label><br>
+                <input {{ sessionData['ta'] }} type="checkbox" name="sessions" value="8" id="ta"><label for="ta">Tuesday Afternoon</label><br>
+                <input {{ sessionData['wa'] }} type="checkbox" name="sessions" value="32" id="wa"><label for="wa">Wednesday Afternoon</label><br>
+                <input {{ sessionData['tha'] }} type="checkbox" name="sessions" value="128" id="tha"><label for="tha">Thursday Afternoon</label><br>
+                <input {{ sessionData['fa'] }} type="checkbox" name="sessions" value="512" id="fa"><label for="fa">Friday Afternoon</label>
             </div>
         </div>
-        <input type="number" name="weight" placeholder="Oncall Weight">
+        <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
+        <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="{{ user['weight']}}">
+        {% if user['admin'] == 1 %}
+        <span><input checked type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
+        {% else %}
         <span><input type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
+        {% endif %}
+        <input type="submit" value="Submit">
     </form>
+    {{ sessionData }}
 </main>
+<script>
+    function togglePasswordVisibility() {
+        var x = document.getElementById("password");
+        if (x.type === "password") {
+            x.type = "text";
+        } else {
+            x.type = "password";
+        }
+    }
+</script>
 {% endblock %}
