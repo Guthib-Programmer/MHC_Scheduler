@@ -191,7 +191,7 @@
     <table>
         <tr>
             <th>Requester Name</th>
-            <th>Original Person</th> <!-- TODO: Add these fields -->
+            <th>Requested Person</th>
             <th>Approved by</th>
             <th>Their Day</th>
             <th>Requested Day</th>
@@ -202,8 +202,8 @@
         {% for day in swapHistory %}
         <tr>
             <td>{{ day['name'] }}</td>
-            <td></td>
-            <td></td>
+            <td>{{ day['name2'] }}</td>
+            <td>{{ day['name3'] }}</td>
             <td>{{ day['day1Name'] }}</td>
             <td>{{ day['day2Name'] }}</td>
             {% if day['crisis'] == 0 %}

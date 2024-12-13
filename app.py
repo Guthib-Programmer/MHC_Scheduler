@@ -30,15 +30,15 @@ def index():
     cur = con.cursor()
 
     # Get all the names of people for the dropdown filter
-    cur.execute("SELECT name FROM people;")
+    cur.execute("SELECT name, id FROM people;")
     rows = cur.fetchall()
     peopleData = [dict(row) for row in rows]
 
     if request.args.get('person'):
         person = request.args.get('person') # Filter days so that only the selected person shows
-        cur.execute("SELECT days.date, p1.name AS oncall, p2.name AS crisis FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE days.person_id = ? OR days.crisis_id = ? ORDER BY days.id ASC LIMIT 50", (person,person))
+        cur.execute("SELECT days.date, p1.name AS oncall, p2.name AS crisis FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
     else: # Display all days with a limit of 50
-        cur.execute("SELECT date, p1.name AS oncall, p2.name AS crisis FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id ORDER BY days.id ASC LIMIT 50")
+        cur.execute("SELECT date, p1.name AS oncall, p2.name AS crisis FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
     rows = cur.fetchall()
     daysData = [dict(row) for row in rows]
 
@@ -119,31 +119,32 @@ def account():
 
                 cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[0],))
                 dayData = cur.fetchone()
-                dayDataList = dict(dayData)
+                day1DataList = dict(dayData)
 
                 selfDay = False
                 day1Id = 0
                 day2Id = 0
+                requested_id = 0
 
                 if request.form.get("crisis"):
-                    if dayDataList['crisis_id'] == personId:
+                    if day1DataList['crisis_id'] == personId:
                         selfDay = True
                         day1Id = selected_days[0]
                 else:
-                    if dayDataList['person_id'] == personId:
+                    if day1DataList['person_id'] == personId:
                         selfDay = True
                         day1Id = selected_days[0]
 
                 cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[1],))
                 dayData = cur.fetchone()
-                dayDataList = dict(dayData)
+                day2DataList = dict(dayData)
 
                 cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
                 rows = cur.fetchall()
                 daysData = [dict(row) for row in rows]
 
                 if request.form.get("crisis"):
-                    if dayDataList['crisis_id'] == personId:
+                    if day2DataList['crisis_id'] == personId:
                         if selfDay:
                             con.close()
                             if adminPerms == 1:
@@ -153,9 +154,11 @@ def account():
                         else:
                             day1Id = selected_days[1]
                             day2Id = selected_days[0]
+                            requested_id = day1DataList['person_id']
                     else:
                         if selfDay:
                             day2Id = selected_days[1]
+                            requested_id = day2DataList['person_id']
                         else:
                             con.close()
                             if adminPerms == 1:
@@ -163,7 +166,7 @@ def account():
                             else:
                                 return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="One of the days must be your own")
                 else:
-                    if dayDataList['person_id'] == personId:
+                    if day2DataList['person_id'] == personId:
                         if selfDay:
                             con.close()
                             if adminPerms == 1:
@@ -173,9 +176,11 @@ def account():
                         else:
                             day1Id = selected_days[1]
                             day2Id = selected_days[0]
+                            requested_id = day1DataList['person_id']
                     else:
                         if selfDay:
                             day2Id = selected_days[1]
+                            requested_id = day2DataList['person_id']
                         else:
                             con.close()
                             if adminPerms == 1:
@@ -184,9 +189,9 @@ def account():
                                 return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="One of the days must be your own")
 
                 if request.form.get("crisis"):
-                    cur.execute("INSERT INTO requests (day1, day2, crisis) VALUES (?,?,1)", (day1Id, day2Id))
+                    cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,1,?,?)", (day1Id, day2Id, requested_id, personId))
                 else:
-                    cur.execute("INSERT INTO requests (day1, day2, crisis) VALUES (?,?,0)", (day1Id, day2Id))
+                    cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,0,?,?)", (day1Id, day2Id, requested_id, personId))
 
                 con.commit()
                 con.close()
@@ -220,7 +225,7 @@ def account():
                         cur.execute("UPDATE requests SET approved = 1, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
                         con.commit()
                         cur.close()
-                    return redirect("./account")
+                    return redirect("./account?pending=1")
                 else:
                     cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
                     row = cur.fetchone()
@@ -261,12 +266,12 @@ def account():
             elif request.form.get("denySwap"): # Deny a swap
                 if not request.form.get("id"):
                     return "Something went wrong" # Redirect
-                requestId = request.args.get("id")
+                requestId = request.form.get("id")
                 if adminPerms == 1:
                     cur.execute("UPDATE requests SET approved = 2, approved_by = ?, timestamp = datetime() WHERE id = ?", (personId, requestId))
                     con.commit()
                     cur.close()
-                    return redirect("./account")
+                    return redirect("./account?pending=1")
                 else:
                     cur.execute("SELECT id FROM people WHERE id IN (SELECT person_id FROM days WHERE id IN (SELECT day2 FROM requests WHERE id = ?))", (requestId,))
                     row = cur.fetchone()
@@ -289,7 +294,7 @@ def account():
                         cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
                         con.commit()
                         return "Something went wrong, Error: Could not retrieve a person id from database"
-            elif request.form.get("updateWeeks"):
+            elif request.form.get("updateWeeks") and adminPerms == 1:
                 weeks = request.form.get("weeks")
                 data = {"weeks": weeks}
                 json_object = json.dumps(data, indent=4)
@@ -331,19 +336,26 @@ def account():
                     con.close()
                     return render_template('admin.html', days=daysData, pendingSwaps=pendingData)
                 elif request.args.get("suspicious"):
-                    cur.execute("SELECT suspicious.type, suspicious.details, suspicious.timestamp, people.name FROM suspicious LEFT JOIN people ON suspicious.person_id = people.id LIMIT 25;")
+                    cur.execute("SELECT suspicious.type, suspicious.details, suspicious.timestamp, people.name FROM suspicious LEFT JOIN people ON suspicious.person_id = people.id ORDER BY suspicious.id DESC LIMIT 25;")
                     rows = cur.fetchall()
                     suspiciousData = [dict(row) for row in rows]
                     con.close()
                     return render_template('admin.html', days=daysData, suspicious=suspiciousData)
                 elif request.args.get("swapHistory"):
-                    cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name, requests.approved, requests.timestamp FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE approved IN (1,2);")
+                    cur.execute("""SELECT requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name, requests.approved, requests.timestamp, p1.name AS name2, p2.name AS name3 
+                                    FROM requests 
+                                    JOIN days d1 ON requests.day1 = d1.id 
+                                    JOIN days d2 ON requests.day2 = d2.id 
+                                    JOIN people ON requests.requested_by = people.id 
+                                    JOIN people p1 ON requests.requested_id = p1.id
+                                    JOIN people p2 ON requests.approved_by = p2.id
+                                    WHERE approved IN (1,2) ORDER BY requests.id DESC LIMIT 50;""")
                     rows = cur.fetchall()
                     swapHistory = [dict(row) for row in rows]
                     con.close()
                     return render_template('admin.html', days=daysData, swapHistory=swapHistory)
                 elif request.args.get("oncallHistory"):
-                    cur.execute("SELECT days.date, p1.name AS person1, p2.name AS person2 FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE completed = 1 LIMIT 25;")
+                    cur.execute("SELECT days.date, p1.name AS person1, p2.name AS person2 FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE completed = 1 ORDER BY days.id DESC LIMIT 25;")
                     rows = cur.fetchall()
                     oncallHistory = [dict(row) for row in rows]
                     con.close()
