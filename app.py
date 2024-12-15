@@ -1,8 +1,13 @@
 from flask import Flask, render_template, url_for, request, redirect, session
 from flask_session import Session
+from flask_apscheduler import APScheduler
+from collections import deque
+from operator import itemgetter
 import sqlite3
 import os
 import json
+from datetime import timedelta
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -12,8 +17,134 @@ Session(app)
 
 SETTINGS_FILE = "settings.json"
 
-# TODO: Use appscheduler to run background processes
+class Config:
+    SCHEDULER_API_ENABLED = True
+
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
+
+# TODO: Start and Finish dates for users
 # TODO: A page for printing
+
+@scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=9, minute=0)
+def assignOncall():
+
+    # Open a connection to the database
+    con = sqlite3.connect("main.db")
+    con.row_factory = lambda cursor, row: row[0]
+    listCur = con.cursor()
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    listCur.execute("SELECT date FROM days ORDER BY id DESC LIMIT 1;")
+    datesData = listCur.fetchall()
+
+    settings = {"weeks": 0}
+    if os.path.isfile(SETTINGS_FILE):
+        with open(SETTINGS_FILE, 'r') as file:
+            data = json.load(file)
+        settings = data
+
+    days_to_plan = int(data['weeks']) * 7
+    weeks_ahead = timedelta(days=days_to_plan)
+    dt = datetime.now()
+    cut_off_date = (dt + weeks_ahead).date()
+
+    datesData = [datetime.strptime(day, "%Y-%m-%d").date() for day in datesData]
+
+    if cut_off_date > datesData[0]:
+        print("Asigning days")
+        
+        # Get a list of people and their diff counts
+        cur.execute("SELECT id, diff, end_diff, weight FROM people;")
+        rows = cur.fetchall()
+        peopleData = [dict(row) for row in rows]
+
+        cur.execute("SELECT date, crisis_id, person_id FROM days ORDER BY id DESC LIMIT 7;")
+        rows = cur.fetchall()
+        previousDaysData = [dict(row) for row in rows]
+
+        crisisId = int(previousDaysData[0]['crisis_id'])
+
+        previousDaysData.reverse()
+        peopleThisWeek = []
+
+        for day in previousDaysData:
+            day['date'] = datetime.strptime(day['date'], "%Y-%m-%d")
+            if day['date'].weekday == 0:
+                peopleThisWeek = []
+            else:
+                # peopleThisWeek.append(day['person_id']) TODO: Uncomment this and remove previous print statement when there is enough people in the database for one oncall per week
+                print("")
+
+        while cut_off_date > datesData[0]:
+
+            date = datesData[0]
+            newDate = date + timedelta(days=1)
+            weekday = newDate.weekday()
+            isWeekend = False
+
+            # TODO: Check if today is a public holiday, if so skip
+
+            if weekday in [5,6]:
+                peopleData = sorted(peopleData, key=itemgetter('end_diff'))
+                isWeekend = True
+            else:
+                peopleData = sorted(peopleData, key=itemgetter('diff'))
+
+            if weekday == 0:
+                peopleThisWeek = []
+
+            if weekday == 6:
+                crisisId += 1
+                if not any(d['id'] == crisisId for d in peopleData):
+                    crisisId = 1
+                while not any(d['id'] == crisisId for d in peopleData):
+                    crisisId += 1
+
+            for personOffset in range(len(peopleData)):
+
+                # Check if person is eligible for day
+                person = peopleData[personOffset]
+
+                person_is_eligible = False
+
+                if person['id'] != crisisId:
+                    if person['id'] not in peopleThisWeek:
+                        person_is_eligible = True
+
+                if person_is_eligible:
+
+                    # Assign day to person
+                    cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (?,?,?,0)", (person['id'], newDate, crisisId))
+                    # peopleThisWeek.append(person['id']) TODO: Make this uncommented when there is enough people in the database to handle one per week
+
+                    if isWeekend:
+                        newDiff = round(person['end_diff'] + (100 / person['weight']))
+                        peopleData[personOffset]['end_diff'] = newDiff
+                        cur.execute("UPDATE people SET end_diff = ? WHERE id = ?", (newDiff, person['id']))
+                    else:
+                        newDiff = round(person['diff'] + (100 / person['weight']))
+                        peopleData[personOffset]['diff'] = newDiff
+                        cur.execute("UPDATE people SET diff = ? WHERE id = ?", (newDiff, person['id']))
+                    
+                    con.commit()
+
+                    datesData = deque(datesData)
+                    datesData.appendleft(newDate)
+                    datesData = list(datesData)
+                    break
+        
+        print("Finished")      
+    con.close()
+
+assignOncall() # TODO: Remove this function call when assigning algorythm is finished
+
+@scheduler.task('cron', id='messageUser', day_of_week='*', hour=9, minute=0)
+def messageUser():
+    print("Messaging user")
+    # TODO: Message users of their oncalls
 
 @app.after_request
 def add_header(response):
@@ -295,7 +426,7 @@ def account():
                         con.commit()
                         return "Something went wrong, Error: Could not retrieve a person id from database"
             elif request.form.get("updateWeeks") and adminPerms == 1:
-                weeks = request.form.get("weeks")
+                weeks = int(request.form.get("weeks"))
                 data = {"weeks": weeks}
                 json_object = json.dumps(data, indent=4)
                 with open(SETTINGS_FILE, 'w') as file:
