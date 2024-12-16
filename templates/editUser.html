@@ -41,6 +41,7 @@
         </div>
         <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
         <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
+        <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" id="colorInput">
         <span><input type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         <input type="submit" value="Submit">
 
@@ -72,6 +73,7 @@
         </div>
         <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
         <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
+        <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" value="{{ user['color'] }}" id="colorInput">
         {% if user['admin'] == 1 %}
         <span><input checked type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         {% else %}
@@ -90,5 +92,19 @@
             x.type = "password";
         }
     }
+
+    function updateColorInput()
+    {
+        colourInput = document.getElementById("colorInput");
+        colourInput.style.color = colourInput.value;
+        if (colourInput.style.color != colourInput.value)
+        {
+            colourInput.style.color = "black"
+        }
+    }
+
+    document.getElementById("colorInput").addEventListener("keyup", updateColorInput)
+
+    updateColorInput();
 </script>
 {% endblock %}

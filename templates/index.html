@@ -26,7 +26,7 @@
         </select>
         <input type="submit" value="Search">
     </form>
-    <a class="print" href="./print">Print</a>
+    <a href="javascript:if(window.print)window.print()" class="print">Print</a>
     <table>
         <tr>
             <th>Day</th>
@@ -36,8 +36,8 @@
         {% for day in days %}
         <tr>
             <td>{{ day['date'] }}</td>
-            <td>{{ day['oncall'] }}</td>
-            <td>{{ day['crisis'] }}</td>
+            <td style="color: {{ day['oncallColor'] }}">{{ day['oncall'] }}</td>
+            <td style="color: {{ day['crisisColor'] }}">{{ day['crisis'] }}</td>
         </tr>
         {% endfor %}
     </table>

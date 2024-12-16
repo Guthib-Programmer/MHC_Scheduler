@@ -25,7 +25,6 @@ scheduler.init_app(app)
 scheduler.start()
 
 # TODO: Start and Finish dates for users
-# TODO: A page for printing
 
 @scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=9, minute=0)
 def assignOncall():
@@ -167,9 +166,9 @@ def index():
 
     if request.args.get('person'):
         person = request.args.get('person') # Filter days so that only the selected person shows
-        cur.execute("SELECT days.date, p1.name AS oncall, p2.name AS crisis FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
+        cur.execute("SELECT days.date, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
     else: # Display all days with a limit of 50
-        cur.execute("SELECT date, p1.name AS oncall, p2.name AS crisis FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
+        cur.execute("SELECT date, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
     rows = cur.fetchall()
     daysData = [dict(row) for row in rows]
 
@@ -522,10 +521,7 @@ def editUser():
 
     if request.method == "POST":
         # Check all the fields have been filled
-        if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight"):
-            
-            
-
+        if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight") or not request.form.get("color"):
             attackDetails = "Thie could be someone trying to alter the client code to complete the update user form without filling all fields"
             personId = session['user_id']
             cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 2, ?)", (personId, attackDetails))
@@ -552,6 +548,7 @@ def editUser():
         number = request.form.get("number")
         sessions = request.form.getlist("sessions")
         weight = int(request.form.get("weight"))
+        color = request.form.get("color")
         weightAdd = 0
         admin = 0
         sessionsNumber = 0
@@ -570,9 +567,9 @@ def editUser():
             weight += weightAdd
 
         if request.form.get("new"): # Create new user
-            cur.execute("INSERT INTO people (name, password, email, number, sessions, weight, admin, diff, end_diff) VALUES (?,?,?,?,?,?,?,0,0)", (name, password, email, number, sessionsNumber, weight, admin))
+            cur.execute("INSERT INTO people (name, password, email, number, sessions, weight, admin, diff, end_diff, color) VALUES (?,?,?,?,?,?,?,0,0,?)", (name, password, email, number, sessionsNumber, weight, admin, color))
         else: # Edit user
-            cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, userId))
+            cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ?, color = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, color, userId))
 
         con.commit()
         con.close()
