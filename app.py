@@ -45,18 +45,21 @@ def assignOncall():
             data = json.load(file)
         settings = data
 
-    days_to_plan = int(data['weeks']) * 7
+    days_to_plan = int(settings['weeks']) * 7
     weeks_ahead = timedelta(days=days_to_plan)
     dt = datetime.now()
     cut_off_date = (dt + weeks_ahead).date()
 
     datesData = [datetime.strptime(day, "%Y-%m-%d").date() for day in datesData]
 
+    if len(datesData) < 1:
+        datesData.append(datetime.strptime(datetime.today().strftime("%Y-%m-%d"), "%Y-%m-%d").date())
+
     if cut_off_date > datesData[0]:
         print("Asigning days")
         
         # Get a list of people and their diff counts
-        cur.execute("SELECT id, diff, end_diff, weight FROM people;")
+        cur.execute("SELECT id, diff, end_diff, weight, active, activate_date FROM people;")
         rows = cur.fetchall()
         peopleData = [dict(row) for row in rows]
 
@@ -64,7 +67,10 @@ def assignOncall():
         rows = cur.fetchall()
         previousDaysData = [dict(row) for row in rows]
 
-        crisisId = int(previousDaysData[0]['crisis_id'])
+        if len(previousDaysData) > 0:
+            crisisId = int(previousDaysData[0]['crisis_id'])
+        else:
+            crisisId = peopleData[0]['id']
 
         previousDaysData.reverse()
         peopleThisWeek = []
@@ -84,6 +90,30 @@ def assignOncall():
             weekday = newDate.weekday()
             isWeekend = False
 
+            for personOffset in range(len(peopleData)):
+                person = peopleData[personOffset]
+                if person['active']:
+                    if person['activate_date']:
+                        if datetime.strptime(person['activate_date'], "%Y-%m-%d").date() < newDate:
+                            cur.execute("UPDATE people SET active = 0, activate_date = NULL WHERE id = ?", (person['id'],))
+                            peopleData[personOffset]['active'] = 0
+                            peopleData[personOffset]['activate_date'] = None
+                            con.commit()
+                else:
+                    if person['activate_date']:
+                        if datetime.strptime(person['activate_date'], "%Y-%m-%d").date() < newDate:
+                            listCur.execute("SELECT diff FROM people ORDER BY diff DESC LIMIT 1")
+                            highestDiff = listCur.fetchall()
+                            print(highestDiff)
+                            listCur.execute("SELECT end_diff FROM people ORDER BY end_diff DESC LIMIT 1")
+                            highestEndDiff = listCur.fetchall()
+                            print(highestEndDiff)
+                            cur.execute("UPDATE people SET active = 1, activate_date = NULL, diff = ?, end_diff = ? WHERE id = ?", (highestDiff[0], highestEndDiff[0], person['id']))
+                            peopleData[personOffset]['active'] = 1
+                            peopleData[personOffset]['activate_date'] = None
+                            peopleData[personOffset]['diff'] = highestDiff[0]
+                            peopleData[personOffset]['end_diff'] = highestEndDiff[0]
+                            con.commit()
             # TODO: Check if today is a public holiday, if so skip
 
             if weekday in [5,6]:
@@ -111,7 +141,8 @@ def assignOncall():
 
                 if person['id'] != crisisId:
                     if person['id'] not in peopleThisWeek:
-                        person_is_eligible = True
+                        if person['active'] == 1:
+                            person_is_eligible = True
 
                 if person_is_eligible:
 
