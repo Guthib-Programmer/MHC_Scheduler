@@ -115,6 +115,7 @@
             <th>Phone Number</th>
             <th>Oncall Weight</th>
             <th>Admin</th>
+            <th>Details</th>
             <th>Edit</th>
         </tr>
         {% for user in users %}
@@ -128,6 +129,7 @@
             {% else %}
             <td>User</td>
             {% endif %}
+            <td><a href="./userdetails?id={{ user['id'] }}">Details</a></td>
             <td><a href="./editUser?id={{ user['id'] }}">Edit</a></td>
         </tr>
         {% endfor %}

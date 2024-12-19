@@ -32,8 +32,6 @@ scheduler.start()
 
 # TODO: Able to volunteer for holidays
 
-# TODO: Why could I approve my own swap
-
 @scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=9, minute=0)
 def assignOncall():
 
@@ -296,11 +294,26 @@ def account():
                 dayData = cur.fetchone()
                 day1DataList = dict(dayData)
 
+                cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[1],))
+                dayData = cur.fetchone()
+                day2DataList = dict(dayData)
+
+                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
+                rows = cur.fetchall()
+                daysData = [dict(row) for row in rows]
+
                 selfDay = False
                 day1Id = 0
                 day2Id = 0
                 requested_id = 0
 
+                if day1DataList['person_id'] == day2DataList['crisis_id'] or day1DataList['crisis_id'] == day2DataList['person_id']:
+                    if adminPerms == 1:
+                        return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
+                    else:
+                        return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
+
+                # DAY 1
                 if request.form.get("crisis"):
                     if day1DataList['crisis_id'] == personId:
                         selfDay = True
@@ -310,14 +323,7 @@ def account():
                         selfDay = True
                         day1Id = selected_days[0]
 
-                cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[1],))
-                dayData = cur.fetchone()
-                day2DataList = dict(dayData)
-
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
-                rows = cur.fetchall()
-                daysData = [dict(row) for row in rows]
-
+                # DAY 2
                 if request.form.get("crisis"):
                     if day2DataList['crisis_id'] == personId:
                         if selfDay:
@@ -348,7 +354,7 @@ def account():
                                 return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="Cannot select two days of your own")
                             else:
                                 return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="Cannot select two days of your own")
-                        else:
+                        else: # TODO: Check if day 2 is not your crisis day
                             day1Id = selected_days[1]
                             day2Id = selected_days[0]
                             requested_id = day1DataList['person_id']
@@ -377,7 +383,7 @@ def account():
                     return "Something went wrong"
                 requestId = request.form.get("id")
 
-                cur.execute("SELECT crisis FROM requests WHERE id = ?", (requestId))
+                cur.execute("SELECT crisis FROM requests WHERE id = ?", (requestId,))
                 crisisResult = cur.fetchone()
                 crisis = list(crisisResult)[0]
 
@@ -498,7 +504,8 @@ def account():
                     return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account")
             
             # Get information of all pending swaps user has to approve
-            cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND (approved IS NULL OR approved NOT IN (1,2));", (personId, personId))
+            print(personId)
+            cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE requests.day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND (approved IS NULL OR approved NOT IN (1,2));", (personId, personId))
             rows = cur.fetchall()
             daysData = [dict(row) for row in rows]
 

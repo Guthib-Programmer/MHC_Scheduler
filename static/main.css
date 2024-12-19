@@ -183,3 +183,10 @@ table form
 {
     background-color: rgb(223, 223, 223);
 }
+
+.editUser
+{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
