@@ -8,6 +8,7 @@ import os
 import json
 from datetime import timedelta
 from datetime import datetime
+from datetime import time
 
 app = Flask(__name__)
 
@@ -23,8 +24,6 @@ class Config:
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
-
-# TODO: Start and Finish dates for users
 
 @scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=9, minute=0)
 def assignOncall():
@@ -100,14 +99,12 @@ def assignOncall():
                             peopleData[personOffset]['activate_date'] = None
                             con.commit()
                 else:
-                    if person['activate_date']:
-                        if datetime.strptime(person['activate_date'], "%Y-%m-%d").date() < newDate:
+                    if person['finish_date']:
+                        if datetime.strptime(person['finish_date'], "%Y-%m-%d").date() < newDate:
                             listCur.execute("SELECT diff FROM people ORDER BY diff DESC LIMIT 1")
                             highestDiff = listCur.fetchall()
-                            print(highestDiff)
                             listCur.execute("SELECT end_diff FROM people ORDER BY end_diff DESC LIMIT 1")
                             highestEndDiff = listCur.fetchall()
-                            print(highestEndDiff)
                             cur.execute("UPDATE people SET active = 1, activate_date = NULL, diff = ?, end_diff = ? WHERE id = ?", (highestDiff[0], highestEndDiff[0], person['id']))
                             peopleData[personOffset]['active'] = 1
                             peopleData[personOffset]['activate_date'] = None
@@ -552,7 +549,7 @@ def editUser():
 
     if request.method == "POST":
         # Check all the fields have been filled
-        if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight") or not request.form.get("color"):
+        if not request.form.get("start") or not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight") or not request.form.get("color"):
             attackDetails = "Thie could be someone trying to alter the client code to complete the update user form without filling all fields"
             personId = session['user_id']
             cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 2, ?)", (personId, attackDetails))
@@ -580,6 +577,7 @@ def editUser():
         sessions = request.form.getlist("sessions")
         weight = int(request.form.get("weight"))
         color = request.form.get("color")
+        start = request.form.get("start")
         weightAdd = 0
         admin = 0
         sessionsNumber = 0
@@ -592,15 +590,33 @@ def editUser():
         if request.form.get("admin"):
             admin = 1
 
+        if request.form.get("endDateCheck"):
+            endDate = request.form.get("endDate")
+        else:
+            endDate = None
+
+        if start == "date":
+            active = 0
+            startDate = request.form.get("startDate")
+        else:
+            active = 1
+            startDate = None
+
         # Calculate weight for user
         for i in range(len(sessions)):
             sessionsNumber += int(sessions[i])
             weight += weightAdd
 
         if request.form.get("new"): # Create new user
-            cur.execute("INSERT INTO people (name, password, email, number, sessions, weight, admin, diff, end_diff, color) VALUES (?,?,?,?,?,?,?,0,0,?)", (name, password, email, number, sessionsNumber, weight, admin, color))
+            con.row_factory = lambda cursor, row: row[0]
+            listCur = con.cursor()
+            listCur.execute("SELECT diff FROM people ORDER BY diff DESC LIMIT 1")
+            highestDiff = listCur.fetchall()
+            listCur.execute("SELECT end_diff FROM people ORDER BY end_diff DESC LIMIT 1")
+            highestEndDiff = listCur.fetchall()
+            cur.execute("INSERT INTO people (name, password, email, number, sessions, weight, admin, diff, end_diff, color, finish_date, active, activate_date, diff, end_diff) VALUES (?,?,?,?,?,?,?,0,0,?,?,?,?,?,?)", (name, password, email, number, sessionsNumber, weight, admin, color, endDate, active, startDate, highestDiff, highestEndDiff))
         else: # Edit user
-            cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ?, color = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, color, userId))
+            cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ?, color = ?, finish_date = ?, active = ?, activate_date = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, color, endDate, active, startDate, userId))
 
         con.commit()
         con.close()

@@ -42,6 +42,20 @@
         <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
         <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
         <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" id="colorInput">
+        <div class="sessions">
+            <label for="active">Start Now: </label>
+            <input type="radio" name="start" value="now" id="active">
+        </div>
+        <div class="sessions">
+            <label for="startDateCheck">Start Date: </label>
+            <input type="radio" name="start" id="startDateCheck">
+            <input type="date" name="startDate" value="date" placeholder="Start Date" id="DatePicker">
+        </div>
+        <div class="sessions">
+            <label for="endDateCheck">End Date:  </label>
+            <input type="checkbox" name="endDateCheck" id="endDateCheck">
+            <input type="date" name="endDate" placeholder="Start Date" id="endDatePicker">
+        </div>
         <span><input type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         <input type="submit" value="Submit">
 
@@ -74,6 +88,34 @@
         <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
         <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
         <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" value="{{ user['color'] }}" id="colorInput">
+        <div class="sessions">
+            <label for="active">Active: </label>
+            {% if user['active'] == 1 %}
+            <input checked type="radio" name="start" value="now" id="active">
+            {% else %}
+            <input type="radio" name="start" value="now" id="active">
+            {% endif %}
+        </div>
+        <div class="sessions">
+            <label for="startDateCheck">Start Date: </label>
+            {% if user['activate_date'] != None %}
+            <input checked type="radio" name="start" id="startDateCheck">
+            <input value="{{ user['activate_date'] }}" type="date" name="startDate" id="DatePicker">
+            {% else %}
+            <input type="radio" name="start" id="startDateCheck">
+            <input type="date" name="startDate" id="DatePicker">
+            {% endif %}
+        </div>
+        <div class="sessions">
+            <label for="endDateCheck">End Date:  </label>
+            {% if user['finish_date'] is defined %}
+            <input checked type="checkbox" name="endDateCheck" id="endDateCheck">
+            <input value="{{ user['finish_date'] }}" type="date" name="endDate" id="endDatePicker">
+            {% else %}
+            <input type="checkbox" name="endDateCheck" id="endDateCheck">
+            <input type="date" name="endDate" placeholder="Start Date" id="endDatePicker">
+            {% endif %}
+        </div>
         {% if user['admin'] == 1 %}
         <span><input checked type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         {% else %}
