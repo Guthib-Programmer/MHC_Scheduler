@@ -9,6 +9,7 @@ import json
 from datetime import timedelta
 from datetime import datetime
 from datetime import time
+import holidays
 
 app = Flask(__name__)
 
@@ -24,6 +25,14 @@ class Config:
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
+
+# TODO: View user details on admin page
+
+# TODO: User friendly swap requests
+
+# TODO: Able to volunteer for holidays
+
+# TODO: Why could I approve my own swap
 
 @scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=9, minute=0)
 def assignOncall():
@@ -111,7 +120,15 @@ def assignOncall():
                             peopleData[personOffset]['diff'] = highestDiff[0]
                             peopleData[personOffset]['end_diff'] = highestEndDiff[0]
                             con.commit()
-            # TODO: Check if today is a public holiday, if so skip
+
+            nz_holidays = holidays.country_holidays('NZ', subdiv='OTA')
+            if newDate in nz_holidays:
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+                continue
 
             if weekday in [5,6]:
                 peopleData = sorted(peopleData, key=itemgetter('end_diff'))
@@ -194,9 +211,9 @@ def index():
 
     if request.args.get('person'):
         person = request.args.get('person') # Filter days so that only the selected person shows
-        cur.execute("SELECT days.date, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
+        cur.execute("SELECT days.date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
     else: # Display all days with a limit of 50
-        cur.execute("SELECT date, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
+        cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
     rows = cur.fetchall()
     daysData = [dict(row) for row in rows]
 
@@ -297,7 +314,7 @@ def account():
                 dayData = cur.fetchone()
                 day2DataList = dict(dayData)
 
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
+                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
                 rows = cur.fetchall()
                 daysData = [dict(row) for row in rows]
 

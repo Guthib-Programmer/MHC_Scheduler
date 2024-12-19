@@ -36,7 +36,11 @@
         {% for day in days %}
         <tr>
             <td>{{ day['date'] }}</td>
+            {% if day['oncall'] != None %}
             <td style="color: {{ day['oncallColor'] }}">{{ day['oncall'] }}</td>
+            {% else %}
+            <td>Volunteer</td>
+            {% endif %}
             <td style="color: {{ day['crisisColor'] }}">{{ day['crisis'] }}</td>
         </tr>
         {% endfor %}
