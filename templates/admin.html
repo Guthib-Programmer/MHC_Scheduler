@@ -52,6 +52,29 @@
     {% else %}
     You have no pending swap requests
     {% endif %}
+    <div class="userSubnav">
+        <h1>Days Needing Volunteers</h1>
+    </div>
+    {% if volunteerDays|length > 0 %}
+    <table>
+        <tr>
+            <th>Date</th>
+            <th>Volunteer</th>
+        </tr>
+        {% for volunteerDay in volunteerDays %}
+        <tr>
+            <td>{{ volunteerDay['date'] }}</td>
+            <form action="#" method="post">
+                <input type="hidden" name="id" value="{{ volunteerDay['id'] }}">
+                <td><input type="submit" value="Volunteer" name="volunteer"></td>
+            </form>
+            
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    There are no days you can volunteer for
+    {% endif %}
 </main>
 
 <div>
@@ -115,7 +138,6 @@
             <th>Phone Number</th>
             <th>Oncall Weight</th>
             <th>Admin</th>
-            <th>Details</th>
             <th>Edit</th>
         </tr>
         {% for user in users %}
@@ -129,7 +151,6 @@
             {% else %}
             <td>User</td>
             {% endif %}
-            <td><a href="./userdetails?id={{ user['id'] }}">Details</a></td>
             <td><a href="./editUser?id={{ user['id'] }}">Edit</a></td>
         </tr>
         {% endfor %}

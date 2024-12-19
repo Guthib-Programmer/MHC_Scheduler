@@ -26,11 +26,9 @@ scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 
-# TODO: View user details on admin page
-
 # TODO: User friendly swap requests
 
-# TODO: Able to volunteer for holidays
+# TODO: Prevent crisis when the person in not active
 
 @scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=9, minute=0)
 def assignOncall():
@@ -482,6 +480,12 @@ def account():
                 with open(SETTINGS_FILE, 'w') as file:
                     file.write(json_object)
                 return redirect("./account")
+            elif request.form.get("volunteer"):
+                dayId = request.form.get("id")
+                cur.execute("UPDATE days SET person_id = ? WHERE id = ?", (personId, dayId))
+                con.commit()
+                con.close()
+                return redirect("./account")
 
             return "Something went wrong, unknown post request"
         else:
@@ -504,10 +508,13 @@ def account():
                     return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account")
             
             # Get information of all pending swaps user has to approve
-            print(personId)
             cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE requests.day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND (approved IS NULL OR approved NOT IN (1,2));", (personId, personId))
             rows = cur.fetchall()
             daysData = [dict(row) for row in rows]
+
+            cur.execute("SELECT * FROM days WHERE person_id = -1")
+            rows = cur.fetchall()
+            volunteerDays = [dict(row) for row in rows]
 
             if adminPerms == 1:
                 # Get information for extra tables on admin page
@@ -516,13 +523,13 @@ def account():
                     rows = cur.fetchall()
                     pendingData = [dict(row) for row in rows]
                     con.close()
-                    return render_template('admin.html', days=daysData, pendingSwaps=pendingData)
+                    return render_template('admin.html', days=daysData, pendingSwaps=pendingData, volunteerDays=volunteerDays)
                 elif request.args.get("suspicious"):
                     cur.execute("SELECT suspicious.type, suspicious.details, suspicious.timestamp, people.name FROM suspicious LEFT JOIN people ON suspicious.person_id = people.id ORDER BY suspicious.id DESC LIMIT 25;")
                     rows = cur.fetchall()
                     suspiciousData = [dict(row) for row in rows]
                     con.close()
-                    return render_template('admin.html', days=daysData, suspicious=suspiciousData)
+                    return render_template('admin.html', days=daysData, suspicious=suspiciousData, volunteerDays=volunteerDays)
                 elif request.args.get("swapHistory"):
                     cur.execute("""SELECT requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name, requests.approved, requests.timestamp, p1.name AS name2, p2.name AS name3 
                                     FROM requests 
@@ -535,19 +542,19 @@ def account():
                     rows = cur.fetchall()
                     swapHistory = [dict(row) for row in rows]
                     con.close()
-                    return render_template('admin.html', days=daysData, swapHistory=swapHistory)
+                    return render_template('admin.html', days=daysData, swapHistory=swapHistory, volunteerDays=volunteerDays)
                 elif request.args.get("oncallHistory"):
                     cur.execute("SELECT days.date, p1.name AS person1, p2.name AS person2 FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE completed = 1 ORDER BY days.id DESC LIMIT 25;")
                     rows = cur.fetchall()
                     oncallHistory = [dict(row) for row in rows]
                     con.close()
-                    return render_template('admin.html', days=daysData, oncallHistory=oncallHistory)
+                    return render_template('admin.html', days=daysData, oncallHistory=oncallHistory, volunteerDays=volunteerDays)
                 elif request.args.get("users"):
                     cur.execute("SELECT * FROM people ORDER BY admin DESC;")
                     rows = cur.fetchall()
                     userData = [dict(row) for row in rows]
                     con.close()
-                    return render_template('admin.html', days=daysData, users=userData)
+                    return render_template('admin.html', days=daysData, users=userData, volunteerDays=volunteerDays)
                 elif request.args.get("settings"):
                     settings = {"weeks": 0}
                     if os.path.isfile(SETTINGS_FILE):
@@ -555,13 +562,13 @@ def account():
                             data = json.load(file)
                         settings = data
                         
-                    return render_template("admin.html", days=daysData, settings=settings)
+                    return render_template("admin.html", days=daysData, settings=settings, volunteerDays=volunteerDays)
 
                 con.close()
-                return render_template('admin.html', days=daysData)
+                return render_template('admin.html', days=daysData, volunteerDays=volunteerDays)
             else:
                 con.close()
-                return render_template('user.html', days=daysData)
+                return render_template('user.html', days=daysData, volunteerDays=volunteerDays)
     else:
         return redirect("/")
     

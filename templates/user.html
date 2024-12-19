@@ -34,13 +34,40 @@
             {% else %}
             <td>Crisis</td>
             {% endif %}
-            <td><a href="?approve={{ day['id'] }}">Approve</a></td>
+            <td><a href="?approve={{ day['id'] }}">Approve</a></td> <!-- TODO: Change this to post request? -->
             <td><a href="?deny={{ day['id'] }}">Deny</a></td>
         </tr>
         {% endfor %}
     </table>
     {% else %}
     You have no pending swap requests
+    {% endif %}
+    <div class="userSubnav">
+        <h1>Days Needing Volunteers</h1>
+    </div>
+    {% if volunteerDays|length > 0 %}
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Their Day</th>
+            <th>Your Day</th>
+            <th>Oncall/Crisis</th>
+            <th>Approve</th>
+            <th>Deny</th>
+        </tr>
+        {% for volunteerDay in volunteerDays %}
+        <tr>
+            <td>{{ volunteerDay['date'] }}</td>
+            <form action="#" method="post">
+                <input type="hidden" name="id" value="{{ volunteerDay['id'] }}">
+                <td><input type="submit" value="Volunteer" name="volunteer"></td>
+            </form>
+            
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    There are no days you can volunteer for
     {% endif %}
 </main>
 {% endblock %}
