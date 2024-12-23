@@ -155,8 +155,6 @@ def assignOncall():
                                 break
                         else:
                             break
-                    else:
-                        break
 
             for personOffset in range(len(peopleData)):
 
