@@ -28,9 +28,7 @@ scheduler.start()
 
 # TODO: User friendly swap requests
 
-# TODO: Prevent crisis when the person in not active
-
-@scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=9, minute=0)
+@scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=8, minute=59)
 def assignOncall():
 
     # Open a connection to the database
@@ -136,11 +134,29 @@ def assignOncall():
                 peopleThisWeek = []
 
             if weekday == 6:
-                crisisId += 1
-                if not any(d['id'] == crisisId for d in peopleData):
-                    crisisId = 1
-                while not any(d['id'] == crisisId for d in peopleData):
+                while True:
                     crisisId += 1
+                    if not any(d['id'] == crisisId for d in peopleData):
+                        crisisId = 1
+                    while not any(d['id'] == crisisId for d in peopleData):
+                        crisisId += 1
+                    cur.execute("SELECT finish_date, active FROM people WHERE id = ?", (crisisId,))
+                    row = cur.fetchone()
+                    person_finish = dict(row)['finish_date']
+                    active = dict(row)['active']
+                    if active == 1:
+                        if person_finish != None:
+                            finish_date = datetime.strptime(person_finish, "%Y-%m-%d").date()
+                            week_ahead = timedelta(days=7)
+                            dt = datetime.now()
+                            cut_off_date_oncall = (dt + week_ahead).date()
+
+                            if finish_date > cut_off_date_oncall:
+                                break
+                        else:
+                            break
+                    else:
+                        break
 
             for personOffset in range(len(peopleData)):
 
@@ -148,7 +164,6 @@ def assignOncall():
                 person = peopleData[personOffset]
 
                 person_is_eligible = False
-
                 if person['id'] != crisisId:
                     if person['id'] not in peopleThisWeek:
                         if person['active'] == 1:
@@ -209,7 +224,7 @@ def index():
         person = request.args.get('person') # Filter days so that only the selected person shows
         cur.execute("SELECT days.date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
     else: # Display all days with a limit of 50
-        cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
+        cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC")
     rows = cur.fetchall()
     daysData = [dict(row) for row in rows]
 
