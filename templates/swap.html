@@ -25,11 +25,17 @@
         <input type="checkbox" name="crisis" id="crisis"><label id="crisisLabel" for="crisis">Swap Crisis</label><br>
 
         <!-- Progress Buttons -->
+        <a href="?">Cancel</a>
         <button disabled type="button" id="nextStep">Next Step &rarr;</button>
         <button type="button" id="stepBack" class="hidden">&larr; Back</button>
-        <button disabled type="button" id="confirm" class="hidden">Confirm Swap &rarr;</button>
-        <a href="?">Cancel</a>
+        <button disabled type="button" id="confirm" class="hidden">Next Step &rarr;</button>
         <input disabled class="hidden" id="submitButton" type="submit" value="Request Swap" name="swapRequest">
+
+        <div id="selectedDays" class="hidden">
+            <h3>Selected Days</h3>
+            <p id="selectedDay1"></p>
+            <p id="selectedDay2"></p>
+        </div>
 
         <!-- table to select your own oncall -->
         <table id="ownOncallTable">
@@ -41,10 +47,10 @@
             </tr>
             {% for day in selfOncall %}
             <tr>
-                <td><input type="checkbox" name="ownOncall" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
+                <td><input type="checkbox" name="ownOncall" value="{{ day['id'] }}" onclick="disableOtherBoxes();" data-conflict_id="{{ day['p2id'] }}" data-date="{{ day['date'] }}"></td>
                 <td>{{ day['date'] }}</td>
-                <td>{{ day['p1Name'] }}</td>
-                <td>{{ day['p2Name'] }}</td>
+                <td class="oncallColumn" data-id="{{ day['p1id'] }}">{{ day['p1Name'] }}</td>
+                <td class="crisisColumn" data-id="{{ day['p2id'] }}">{{ day['p2Name'] }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -59,10 +65,10 @@
             </tr>
             {% for day in selfCrisis %}
             <tr>
-                <td><input type="checkbox" name="ownCrisis" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
+                <td><input type="checkbox" name="ownCrisis" value="{{ day['id'] }}" onclick="disableOtherBoxes();"  data-conflict_id="{{ day['p1id'] }}" data-date="{{ day['date'] }}"></td>
                 <td>{{ day['date'] }}</td>
-                <td>{{ day['p1Name'] }}</td>
-                <td>{{ day['p2Name'] }}</td>
+                <td class="oncallColumn" data-id="{{ day['p1id'] }}">{{ day['p1Name'] }}</td>
+                <td class="crisisColumn" data-id="{{ day['p2id'] }}">{{ day['p2Name'] }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -77,10 +83,10 @@
             </tr>
             {% for day in otherOncall %}
             <tr>
-                <td><input type="checkbox" name="otherOncall" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
+                <td><input type="checkbox" name="otherOncall" value="{{ day['id'] }}" onclick="disableOtherBoxes();" data-date="{{ day['date'] }}"></td>
                 <td>{{ day['date'] }}</td>
-                <td>{{ day['p1Name'] }}</td>
-                <td>{{ day['p2Name'] }}</td>
+                <td class="oncallColumn" data-id="{{ day['p1id'] }}">{{ day['p1Name'] }}</td>
+                <td class="crisisColumn" data-id="{{ day['p2id'] }}">{{ day['p2Name'] }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -95,10 +101,10 @@
             </tr>
             {% for day in otherCrisis %}
             <tr>
-                <td><input type="checkbox" name="otherCrisis" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
+                <td><input type="checkbox" name="otherCrisis" value="{{ day['id'] }}" onclick="disableOtherBoxes();" data-date="{{ day['date'] }}"></td>
                 <td>{{ day['date'] }}</td>
-                <td>{{ day['p1Name'] }}</td>
-                <td>{{ day['p2Name'] }}</td>
+                <td class="oncallColumn" data-id="{{ day['p1id'] }}">{{ day['p1Name'] }}</td>
+                <td class="crisisColumn" data-id="{{ day['p2id'] }}">{{ day['p2Name'] }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -179,6 +185,23 @@
         });
     }
 
+    function hideConflictingRows(selectedId, tableId, columnClass) {
+        console.log("Conflicting row id: " + selectedId);
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tr');
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const column = row.getElementsByClassName(columnClass)[0];
+            if (column && column.dataset.id === selectedId) {
+                console.log("Hiding row");
+                row.classList.add('hidden');
+            } else {
+                console.log("Showing row");
+                row.classList.remove('hidden');
+            }
+        }
+    }
+
     crisis.addEventListener('change', () => {
         if (crisis.checked) {
             title.innerText = 'Request Swap - Step 1: Select Your Own Crisis';
@@ -215,6 +238,8 @@
             } else {
                 confirmButton.disabled = true;
             }
+            const selectedCrisisId = document.querySelector('input[name="ownCrisis"]:checked').dataset.conflict_id;
+            hideConflictingRows(selectedCrisisId, 'otherCrisisTable', 'crisisColumn');
         } else {
             title.innerText = 'Request Swap - Step 2: Select the other Oncall';
             ownOncallTable.classList.add('hidden');
@@ -224,6 +249,8 @@
             } else {
                 confirmButton.disabled = true;
             }
+            const selectedOncallId = document.querySelector('input[name="ownOncall"]:checked').dataset.conflict_id;
+            hideConflictingRows(selectedOncallId, 'otherOncallTable', 'oncallColumn');
         }
         crisis.classList.add('hidden');
         crisisLabel.classList.add('hidden');
@@ -248,20 +275,31 @@
         stepBack.classList.add('hidden');
         confirmButton.classList.add('hidden');
         submitButton.classList.add('hidden');
+        document.getElementById('selectedDays').classList.add('hidden');
     });
 
     confirmButton.addEventListener('click', () => {
         title.innerText = 'Request Swap - Step 3: Confirm Swap';
+        let selectedDay1, selectedDay2;
+
         if (crisis.checked) {
             otherCrisisTable.classList.add('hidden');
+            selectedDay1 = document.querySelector('input[name="ownCrisis"]:checked').dataset.date;
+            selectedDay2 = document.querySelector('input[name="otherCrisis"]:checked').dataset.date;
         } else {
             otherOncallTable.classList.add('hidden');
+            selectedDay1 = document.querySelector('input[name="ownOncall"]:checked').dataset.date;
+            selectedDay2 = document.querySelector('input[name="otherOncall"]:checked').dataset.date;
         }
+
         confirmButton.classList.add('hidden');
         submitButton.classList.remove('hidden');
         submitButton.disabled = false;
-        // TODO: Display to user the days they selected
-        // TODO: Add a confirmation message
+
+        // Display the selected days to the user
+        document.getElementById('selectedDay1').innerText = `Your Day: ${selectedDay1}`;
+        document.getElementById('selectedDay2').innerText = `Selected Day: ${selectedDay2}`;
+        document.getElementById('selectedDays').classList.remove('hidden');
     });
     
 </script>

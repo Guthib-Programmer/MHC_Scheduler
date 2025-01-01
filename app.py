@@ -306,16 +306,53 @@ def account():
 
             if request.form.get("swapRequest"): # Request for swap
 
+                # Get information of days
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id = ? LIMIT 50;", (personId,))
+                rows = cur.fetchall()
+                selfOncallData = [dict(row) for row in rows]
+                for day in selfOncallData:
+                    day['date'] = format_date(day['date'])
+
+                # Get information of days
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                rows = cur.fetchall()
+                otherOncallData = [dict(row) for row in rows]
+                for day in otherOncallData:
+                    day['date'] = format_date(day['date'])
+
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id = ? LIMIT 50;", (personId,))
+                rows = cur.fetchall()
+                selfCrisisData = [dict(row) for row in rows]
+                for day in selfCrisisData:
+                    day['date'] = format_date(day['date'])
+
+                # Get information of days
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                rows = cur.fetchall()
+                otherCrisisData = [dict(row) for row in rows]
+                for day in otherCrisisData:
+                    day['date'] = format_date(day['date'])
+
+
                 if request.form.get("crisis"):
                     if not request.form.get("ownCrisis") or not request.form.get("otherCrisis"):
-                        return "Something went wrong" # TODO: redirect an error
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where one of the days is missing."
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                        if adminPerms == 1:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                        else:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
                     
                     firstDay = request.form.get("ownCrisis")
-                    secondDay = request.form.get("otherCrisis")
-                    
+                    secondDay = request.form.get("otherCrisis")        
                 else:
                     if not request.form.get("ownOncall") or not request.form.get("otherOncall"):
-                        return "Something went wrong" # TODO: redirect an error
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where one of the days is missing."
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                        if adminPerms == 1:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                        else:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
                     
                     firstDay =  request.form.get("ownOncall")
                     secondDay = request.form.get("otherOncall")
@@ -329,13 +366,20 @@ def account():
                 day2DataList = dict(dayData)
 
                 if day1DataList['completed'] == 1 or day2DataList['completed'] == 1:
-                    return "Something went wrong, one of the days is already completed" # TODO: redirect an error
+                    attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where one of the days has already been completed."
+                    cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                    if adminPerms == 1:
+                        return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                    else:
+                        return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
                 
                 if day1DataList['person_id'] == day2DataList['crisis_id'] or day1DataList['crisis_id'] == day2DataList['person_id']:
+                    attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap that would result in someone having both oncall and crisis on the same day."
+                    cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
                     if adminPerms == 1:
-                        return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
+                        return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
                     else:
-                        return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
+                        return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
 
                 cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
                 rows = cur.fetchall()
@@ -348,7 +392,12 @@ def account():
 
                 if request.form.get("crisis"):
                     if day1DataList['crisis_id'] == personId and day2DataList['crisis_id'] == personId:
-                        return "Both days cannot be your own" # TODO: redirect to an error page
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where both days are their own."
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                        if adminPerms == 1:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                        else:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
                     elif day1DataList['crisis_id'] == personId:
                         day1Id = firstDay
                         day2Id = secondDay
@@ -356,12 +405,23 @@ def account():
                         day1Id = secondDay
                         day2Id = firstDay
                     else:
-                        return "One of the days must be your own" # TODO: redirect to an error page
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where both days are other people's."
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                        if adminPerms == 1:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                        else:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
 
                     cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,1,?,?)", (day1Id, day2Id, requested_id, personId))
                 else:
                     if day1DataList['person_id'] == personId and day2DataList['person_id'] == personId:
-                        return "Both days cannot be your own" # TODO: redirect to an error page
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where both days are their own."
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                        if adminPerms == 1:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                        else:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
+
                     elif day1DataList['person_id'] == personId:
                         day1Id = firstDay
                         day2Id = secondDay
@@ -369,13 +429,20 @@ def account():
                         day1Id = secondDay
                         day2Id = firstDay
                     else:
-                        return "One of the days must be your own" # TODO: redirect to an error page
+                        attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where both days are other people's."
+                        cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                        if adminPerms == 1:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                        else:
+                            return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
 
                     cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,0,?,?)", (day1Id, day2Id, requested_id, personId))
                 
                 con.commit()
                 con.close()
 
+                # TODO: Show a confirmation message
+                # TODO: Send a message to the person who is being requested to swap
                 return redirect("./account")
             elif request.form.get("approveSwap"): # Approve a swap
                 if not request.form.get("id"):
@@ -518,35 +585,33 @@ def account():
             if request.args.get("swap"): # Display page for person requesting to make a new swap
 
                 # Get information of days
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id = ? LIMIT 50;", (personId,))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id = ? LIMIT 50;", (personId,))
                 rows = cur.fetchall()
                 selfOncallData = [dict(row) for row in rows]
                 for day in selfOncallData:
                     day['date'] = format_date(day['date'])
 
                 # Get information of days
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
                 rows = cur.fetchall()
                 otherOncallData = [dict(row) for row in rows]
                 for day in otherOncallData:
                     day['date'] = format_date(day['date'])
 
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id = ? LIMIT 50;", (personId,))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id = ? LIMIT 50;", (personId,))
                 rows = cur.fetchall()
                 selfCrisisData = [dict(row) for row in rows]
                 for day in selfCrisisData:
                     day['date'] = format_date(day['date'])
 
                 # Get information of days
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
                 rows = cur.fetchall()
                 otherCrisisData = [dict(row) for row in rows]
                 for day in otherCrisisData:
                     day['date'] = format_date(day['date'])
 
                 con.close()
-
-                # TODO: Format dates to be easier to read
 
                 if adminPerms == 1:
                     return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account")
