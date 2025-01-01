@@ -26,7 +26,11 @@ scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 
-# TODO: User friendly swap requests
+# TODO: Mark past days as completed
+
+def format_date(date_str):
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    return date_obj.strftime("%a %d %B %Y")
 
 @scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=8, minute=59)
 def assignOncall():
@@ -82,7 +86,7 @@ def assignOncall():
             if day['date'].weekday == 0:
                 peopleThisWeek = []
             else:
-                # peopleThisWeek.append(day['person_id']) TODO: Uncomment this and remove previous print statement when there is enough people in the database for one oncall per week
+                peopleThisWeek.append(day['person_id'])
                 print("")
 
         while cut_off_date > datesData[0]:
@@ -133,6 +137,13 @@ def assignOncall():
             if weekday == 0:
                 peopleThisWeek = []
 
+            cur.execute("SELECT COUNT(*) FROM people;")
+            rows = cur.fetchone()
+            count = list(rows)[0]
+
+            if count <= len(peopleThisWeek) + 1:
+                peopleThisWeek = []
+
             if weekday == 6:
                 while True:
                     crisisId += 1
@@ -171,7 +182,7 @@ def assignOncall():
 
                     # Assign day to person
                     cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (?,?,?,0)", (person['id'], newDate, crisisId))
-                    # peopleThisWeek.append(person['id']) TODO: Make this uncommented when there is enough people in the database to handle one per week
+                    peopleThisWeek.append(person['id'])
 
                     if isWeekend:
                         newDiff = round(person['end_diff'] + (100 / person['weight']))
@@ -192,12 +203,10 @@ def assignOncall():
         print("Finished")      
     con.close()
 
-assignOncall() # TODO: Remove this function call when assigning algorythm is finished
-
+# TODO: Message users of their oncalls
 @scheduler.task('cron', id='messageUser', day_of_week='*', hour=9, minute=0)
 def messageUser():
     print("Messaging user")
-    # TODO: Message users of their oncalls
 
 @app.after_request
 def add_header(response):
@@ -222,9 +231,11 @@ def index():
         person = request.args.get('person') # Filter days so that only the selected person shows
         cur.execute("SELECT days.date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
     else: # Display all days with a limit of 50
-        cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC")
+        cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
     rows = cur.fetchall()
     daysData = [dict(row) for row in rows]
+    for day in daysData:
+        day['date'] = format_date(day['date'])
 
     con.close()
 
@@ -294,20 +305,37 @@ def account():
             cur = con.cursor()
 
             if request.form.get("swapRequest"): # Request for swap
-                if not request.form.get("daySelect"):
-                    return "Empty Field"
-                
-                selected_days = request.form.getlist('daySelect')
-                if len(selected_days) != 2:
-                    return "Wrong number of days selected"
 
-                cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[0],))
+                if request.form.get("crisis"):
+                    if not request.form.get("ownCrisis") or not request.form.get("otherCrisis"):
+                        return "Something went wrong" # TODO: redirect an error
+                    
+                    firstDay = request.form.get("ownCrisis")
+                    secondDay = request.form.get("otherCrisis")
+                    
+                else:
+                    if not request.form.get("ownOncall") or not request.form.get("otherOncall"):
+                        return "Something went wrong" # TODO: redirect an error
+                    
+                    firstDay =  request.form.get("ownOncall")
+                    secondDay = request.form.get("otherOncall")
+
+                cur.execute("SELECT * FROM days WHERE id = ?", (firstDay,))
                 dayData = cur.fetchone()
                 day1DataList = dict(dayData)
 
-                cur.execute("SELECT * FROM days WHERE id = ?", (selected_days[1],))
+                cur.execute("SELECT * FROM days WHERE id = ?", (secondDay,))
                 dayData = cur.fetchone()
                 day2DataList = dict(dayData)
+
+                if day1DataList['completed'] == 1 or day2DataList['completed'] == 1:
+                    return "Something went wrong, one of the days is already completed" # TODO: redirect an error
+                
+                if day1DataList['person_id'] == day2DataList['crisis_id'] or day1DataList['crisis_id'] == day2DataList['person_id']:
+                    if adminPerms == 1:
+                        return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
+                    else:
+                        return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
 
                 cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
                 rows = cur.fetchall()
@@ -318,73 +346,33 @@ def account():
                 day2Id = 0
                 requested_id = 0
 
-                if day1DataList['person_id'] == day2DataList['crisis_id'] or day1DataList['crisis_id'] == day2DataList['person_id']:
-                    if adminPerms == 1:
-                        return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
-                    else:
-                        return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="This swap would result in someone with oncall and crisis duty on the same day")
-
-                # DAY 1
                 if request.form.get("crisis"):
-                    if day1DataList['crisis_id'] == personId:
-                        selfDay = True
-                        day1Id = selected_days[0]
-                else:
-                    if day1DataList['person_id'] == personId:
-                        selfDay = True
-                        day1Id = selected_days[0]
-
-                # DAY 2
-                if request.form.get("crisis"):
-                    if day2DataList['crisis_id'] == personId:
-                        if selfDay:
-                            con.close()
-                            if adminPerms == 1:
-                                return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="Cannot select two days of your own")
-                            else:
-                                return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="Cannot select two days of your own")
-                        else:
-                            day1Id = selected_days[1]
-                            day2Id = selected_days[0]
-                            requested_id = day1DataList['person_id']
+                    if day1DataList['crisis_id'] == personId and day2DataList['crisis_id'] == personId:
+                        return "Both days cannot be your own" # TODO: redirect to an error page
+                    elif day1DataList['crisis_id'] == personId:
+                        day1Id = firstDay
+                        day2Id = secondDay
+                    elif day2DataList['crisis_id'] == personId:
+                        day1Id = secondDay
+                        day2Id = firstDay
                     else:
-                        if selfDay:
-                            day2Id = selected_days[1]
-                            requested_id = day2DataList['person_id']
-                        else:
-                            con.close()
-                            if adminPerms == 1:
-                                return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="One of the days must be your own")
-                            else:
-                                return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="One of the days must be your own")
-                else:
-                    if day2DataList['person_id'] == personId:
-                        if selfDay:
-                            con.close()
-                            if adminPerms == 1:
-                                return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="Cannot select two days of your own")
-                            else:
-                                return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="Cannot select two days of your own")
-                        else: # TODO: Check if day 2 is not your crisis day
-                            day1Id = selected_days[1]
-                            day2Id = selected_days[0]
-                            requested_id = day1DataList['person_id']
-                    else:
-                        if selfDay:
-                            day2Id = selected_days[1]
-                            requested_id = day2DataList['person_id']
-                        else:
-                            con.close()
-                            if adminPerms == 1:
-                                return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account", warn="One of the days must be your own")
-                            else:
-                                return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account", warn="One of the days must be your own")
+                        return "One of the days must be your own" # TODO: redirect to an error page
 
-                if request.form.get("crisis"):
                     cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,1,?,?)", (day1Id, day2Id, requested_id, personId))
                 else:
-                    cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,0,?,?)", (day1Id, day2Id, requested_id, personId))
+                    if day1DataList['person_id'] == personId and day2DataList['person_id'] == personId:
+                        return "Both days cannot be your own" # TODO: redirect to an error page
+                    elif day1DataList['person_id'] == personId:
+                        day1Id = firstDay
+                        day2Id = secondDay
+                    elif day2DataList['person_id'] == personId:
+                        day1Id = secondDay
+                        day2Id = firstDay
+                    else:
+                        return "One of the days must be your own" # TODO: redirect to an error page
 
+                    cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,0,?,?)", (day1Id, day2Id, requested_id, personId))
+                
                 con.commit()
                 con.close()
 
@@ -490,8 +478,29 @@ def account():
                 weeks = int(request.form.get("weeks"))
                 data = {"weeks": weeks}
                 json_object = json.dumps(data, indent=4)
+
+                # Open the settings file and read the current number of weeks
+                with open(SETTINGS_FILE, 'r') as file:
+                    current_settings = json.load(file)
+                current_weeks = current_settings.get("weeks", 0)
+
                 with open(SETTINGS_FILE, 'w') as file:
                     file.write(json_object)
+
+                # If the updated number of weeks is less than the current number of weeks
+                if weeks < current_weeks:
+                    # Calculate the cut-off date
+                    cut_off_date = datetime.now().date() + timedelta(days=weeks * 7)
+                    cut_off_date_str = cut_off_date.strftime("%Y-%m-%d")
+
+                    print(f"Cut off date: {cut_off_date_str}")
+
+                    # Delete days in the database that are beyond the updated number of weeks
+                    cur.execute("DELETE FROM days WHERE date > ?", (cut_off_date_str,))
+                    con.commit()
+                else:
+                    assignOncall()
+
                 return redirect("./account")
             elif request.form.get("volunteer"):
                 dayId = request.form.get("id")
@@ -509,25 +518,54 @@ def account():
             if request.args.get("swap"): # Display page for person requesting to make a new swap
 
                 # Get information of days
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
+                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id = ? LIMIT 50;", (personId,))
                 rows = cur.fetchall()
-                daysData = [dict(row) for row in rows]
+                selfOncallData = [dict(row) for row in rows]
+                for day in selfOncallData:
+                    day['date'] = format_date(day['date'])
+
+                # Get information of days
+                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                rows = cur.fetchall()
+                otherOncallData = [dict(row) for row in rows]
+                for day in otherOncallData:
+                    day['date'] = format_date(day['date'])
+
+                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id = ? LIMIT 50;", (personId,))
+                rows = cur.fetchall()
+                selfCrisisData = [dict(row) for row in rows]
+                for day in selfCrisisData:
+                    day['date'] = format_date(day['date'])
+
+                # Get information of days
+                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                rows = cur.fetchall()
+                otherCrisisData = [dict(row) for row in rows]
+                for day in otherCrisisData:
+                    day['date'] = format_date(day['date'])
 
                 con.close()
 
+                # TODO: Format dates to be easier to read
+
                 if adminPerms == 1:
-                    return render_template("swap.html", days=daysData, controlText="Admin", controlLink="./account")
+                    return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account")
                 else:
-                    return render_template("swap.html", days=daysData, controlText="Swap", controlLink="./account")
+                    return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account")
             
             # Get information of all pending swaps user has to approve
             cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE requests.day2 IN (SELECT id FROM days WHERE person_id = ? OR crisis_id = ?) AND (approved IS NULL OR approved NOT IN (1,2));", (personId, personId))
             rows = cur.fetchall()
             daysData = [dict(row) for row in rows]
+            for day in daysData:
+                day['day1Name'] = format_date(day['day1Name'])
+                day['day2Name'] = format_date(day['day2Name'])
 
             cur.execute("SELECT * FROM days WHERE person_id = -1")
             rows = cur.fetchall()
             volunteerDays = [dict(row) for row in rows]
+            for day in volunteerDays:
+                day['date'] = format_date(day['date'])
 
             if adminPerms == 1:
                 # Get information for extra tables on admin page
@@ -535,6 +573,9 @@ def account():
                     cur.execute("SELECT requests.id, requests.crisis, d1.date AS day1Name, d2.date AS day2Name, people.name FROM requests JOIN days d1 ON requests.day1 = d1.id JOIN days d2 ON requests.day2 = d2.id JOIN people ON d1.person_id = people.id WHERE (approved IS NULL OR approved NOT IN (1,2));")
                     rows = cur.fetchall()
                     pendingData = [dict(row) for row in rows]
+                    for day in pendingData:
+                        day['day1Name'] = format_date(day['day1Name'])
+                        day['day2Name'] = format_date(day['day2Name'])
                     con.close()
                     return render_template('admin.html', days=daysData, pendingSwaps=pendingData, volunteerDays=volunteerDays)
                 elif request.args.get("suspicious"):
@@ -554,12 +595,17 @@ def account():
                                     WHERE approved IN (1,2) ORDER BY requests.id DESC LIMIT 50;""")
                     rows = cur.fetchall()
                     swapHistory = [dict(row) for row in rows]
+                    for day in swapHistory:
+                        day['day1Name'] = format_date(day['day1Name'])
+                        day['day2Name'] = format_date(day['day2Name'])
                     con.close()
                     return render_template('admin.html', days=daysData, swapHistory=swapHistory, volunteerDays=volunteerDays)
                 elif request.args.get("oncallHistory"):
                     cur.execute("SELECT days.date, p1.name AS person1, p2.name AS person2 FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE completed = 1 ORDER BY days.id DESC LIMIT 25;")
                     rows = cur.fetchall()
                     oncallHistory = [dict(row) for row in rows]
+                    for day in oncallHistory:
+                        day['date'] = format_date(day['date'])
                     con.close()
                     return render_template('admin.html', days=daysData, oncallHistory=oncallHistory, volunteerDays=volunteerDays)
                 elif request.args.get("users"):

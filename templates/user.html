@@ -34,8 +34,18 @@
             {% else %}
             <td>Crisis</td>
             {% endif %}
-            <td><a href="?approve={{ day['id'] }}">Approve</a></td> <!-- TODO: Change this to post request? -->
-            <td><a href="?deny={{ day['id'] }}">Deny</a></td>
+            <td>
+                <form action="#" method="post">
+                    <input type="hidden" name="id" value="{{ day['id'] }}">
+                    <input type="submit" value="Approve" name="approveSwap">
+                </form>
+            </td>
+            <td>
+                <form action="#" method="post">
+                    <input type="hidden" name="id" value="{{ day['id'] }}">
+                    <input type="submit" value="Deny" name="denySwap">
+                </form>
+            </td>
         </tr>
         {% endfor %}
     </table>
@@ -48,12 +58,8 @@
     {% if volunteerDays|length > 0 %}
     <table>
         <tr>
-            <th>Name</th>
-            <th>Their Day</th>
-            <th>Your Day</th>
-            <th>Oncall/Crisis</th>
-            <th>Approve</th>
-            <th>Deny</th>
+            <th>Date</th>
+            <th>Volunteer</th>
         </tr>
         {% for volunteerDay in volunteerDays %}
         <tr>

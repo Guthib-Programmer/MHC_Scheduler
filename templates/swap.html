@@ -17,29 +17,252 @@
 </nav>
 <main>
     <div class="userSubnav">
-        <h1>Request Swap</h1>
+        <h1 id="title">Request Swap - Step 1: Select Your Own Oncall</h1>
     </div>
     <p style="color:red; text-align: center; font-size: 1.5rem;">{{ warn }}</p>
+
     <form action="#" method="post">
-        <input type="checkbox" name="crisis" id="crisis"><label for="crisis">Swap Crisis</label><br>
-        <table>
+        <input type="checkbox" name="crisis" id="crisis"><label id="crisisLabel" for="crisis">Swap Crisis</label><br>
+
+        <!-- Progress Buttons -->
+        <button disabled type="button" id="nextStep">Next Step &rarr;</button>
+        <button type="button" id="stepBack" class="hidden">&larr; Back</button>
+        <button disabled type="button" id="confirm" class="hidden">Confirm Swap &rarr;</button>
+        <a href="?">Cancel</a>
+        <input disabled class="hidden" id="submitButton" type="submit" value="Request Swap" name="swapRequest">
+
+        <!-- table to select your own oncall -->
+        <table id="ownOncallTable">
             <tr>
                 <th>Select</th>
                 <th>Day</th>
                 <th>Oncall</th>
                 <th>Crisis</th>
             </tr>
-            {% for day in days %}
+            {% for day in selfOncall %}
             <tr>
-                <td><input type="checkbox" name="daySelect" value="{{ day['id'] }}"></td> <!-- TODO: Disable and enable checkboxes as they are valid input -->
+                <td><input type="checkbox" name="ownOncall" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
                 <td>{{ day['date'] }}</td>
                 <td>{{ day['p1Name'] }}</td>
                 <td>{{ day['p2Name'] }}</td>
             </tr>
             {% endfor %}
         </table>
-        <input type="submit" value="Request Swap" name="swapRequest">
+
+        <!-- table to select your own crisis -->
+        <table class="hidden" id="ownCrisisTable">
+            <tr>
+                <th>Select</th>
+                <th>Day</th>
+                <th>Oncall</th>
+                <th>Crisis</th>
+            </tr>
+            {% for day in selfCrisis %}
+            <tr>
+                <td><input type="checkbox" name="ownCrisis" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
+                <td>{{ day['date'] }}</td>
+                <td>{{ day['p1Name'] }}</td>
+                <td>{{ day['p2Name'] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- table to select the other oncall -->
+        <table class="hidden" id="otherOncallTable">
+            <tr>
+                <th>Select</th>
+                <th>Day</th>
+                <th>Oncall</th>
+                <th>Crisis</th>
+            </tr>
+            {% for day in otherOncall %}
+            <tr>
+                <td><input type="checkbox" name="otherOncall" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
+                <td>{{ day['date'] }}</td>
+                <td>{{ day['p1Name'] }}</td>
+                <td>{{ day['p2Name'] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- table to select the other oncall -->
+        <table class="hidden" id="otherCrisisTable">
+            <tr>
+                <th>Select</th>
+                <th>Day</th>
+                <th>Oncall</th>
+                <th>Crisis</th>
+            </tr>
+            {% for day in otherCrisis %}
+            <tr>
+                <td><input type="checkbox" name="otherCrisis" value="{{ day['id'] }}" onclick="disableOtherBoxes();"></td>
+                <td>{{ day['date'] }}</td>
+                <td>{{ day['p1Name'] }}</td>
+                <td>{{ day['p2Name'] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
     </form>
 
 </main>
+
+{% endblock %}
+
+{% block script %}
+<script>
+    const crisis = document.getElementById('crisis');
+    const crisisLabel = document.getElementById("crisisLabel");
+    const title = document.getElementById('title');
+    const ownOncallTable = document.getElementById('ownOncallTable');
+    const ownCrisisTable = document.getElementById('ownCrisisTable');
+    const otherOncallTable = document.getElementById('otherOncallTable');
+    const otherCrisisTable = document.getElementById('otherCrisisTable');
+    const nextStep = document.getElementById('nextStep');
+    const stepBack = document.getElementById('stepBack');
+    const confirmButton = document.getElementById('confirm');
+    const submitButton = document.getElementById('submitButton');
+
+    let oncallFirstStepComplete = false
+    let crisisFirstStepComplete = false
+    let oncallSecondStepComplete = false
+    let crisisSecondStepComplete = false
+
+    function disableOtherBoxes() {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const name = this.name;
+                if (this.checked) {
+                    if (name == "ownOncall" || name == "ownCrisis") {
+                        nextStep.disabled = false;
+                        if (crisis.checked) {
+                            crisisFirstStepComplete = true;
+                        } else {
+                            oncallFirstStepComplete = true;
+                        }
+                    } else if (name == "otherOncall" || name == "otherCrisis") {
+                        confirmButton.disabled = false;
+                        if (crisis.checked) {
+                            crisisSecondStepComplete = true;
+                        } else {
+                            oncallSecondStepComplete = true;
+                        }
+                    }
+                    checkboxes.forEach(box => {
+                        if (box.name === name && box !== this) {
+                            box.disabled = true;
+                        }
+                    });
+                } else {
+                    if (name == "ownOncall" || name == "ownCrisis") {
+                        nextStep.disabled = true;
+                        if (crisis.checked) {
+                            crisisFirstStepComplete = false;
+                        } else {
+                            oncallFirstStepComplete = false;
+                        }
+                    } else if (name == "otherOncall" || name == "otherCrisis") {
+                        confirmButton.disabled = true;
+                        if (crisis.checked) {
+                            crisisSecondStepComplete = false;
+                        } else {
+                            oncallSecondStepComplete = false;
+                        }
+                    }
+                    checkboxes.forEach(box => {
+                        if (box.name === name) {
+                            box.disabled = false;
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    crisis.addEventListener('change', () => {
+        if (crisis.checked) {
+            title.innerText = 'Request Swap - Step 1: Select Your Own Crisis';
+            ownOncallTable.classList.add('hidden');
+            ownCrisisTable.classList.remove('hidden');
+            otherOncallTable.classList.add('hidden');
+            otherCrisisTable.classList.add('hidden');
+            if (crisisFirstStepComplete) {
+                nextStep.disabled = false;
+            } else {
+                nextStep.disabled = true;
+            }
+        } else {
+            title.innerText = 'Request Swap - Step 1: Select Your Own Oncall';
+            ownOncallTable.classList.remove('hidden');
+            ownCrisisTable.classList.add('hidden');
+            otherOncallTable.classList.add('hidden');
+            otherCrisisTable.classList.add('hidden');
+            if (oncallFirstStepComplete) {
+                nextStep.disabled = false;
+            } else {
+                nextStep.disabled = true;
+            }
+        }
+    });
+
+    nextStep.addEventListener('click', () => {
+        if (crisis.checked) {
+            title.innerText = 'Request Swap - Step 2: Select the other Crisis';
+            ownCrisisTable.classList.add('hidden');
+            otherCrisisTable.classList.remove('hidden');
+            if (crisisSecondStepComplete) {
+                confirmButton.disabled = false;
+            } else {
+                confirmButton.disabled = true;
+            }
+        } else {
+            title.innerText = 'Request Swap - Step 2: Select the other Oncall';
+            ownOncallTable.classList.add('hidden');
+            otherOncallTable.classList.remove('hidden');
+            if (oncallSecondStepComplete) {
+                confirmButton.disabled = false;
+            } else {
+                confirmButton.disabled = true;
+            }
+        }
+        crisis.classList.add('hidden');
+        crisisLabel.classList.add('hidden');
+        nextStep.classList.add('hidden');
+        stepBack.classList.remove('hidden');
+        confirmButton.classList.remove('hidden');
+    });
+
+    stepBack.addEventListener('click', () => {
+        if (crisis.checked) {
+            title.innerText = 'Request Swap - Step 1: Select Your Own Crisis';
+            ownCrisisTable.classList.remove('hidden');
+            otherCrisisTable.classList.add('hidden');
+        } else {
+            title.innerText = 'Request Swap - Step 1: Select Your Own Oncall';
+            ownOncallTable.classList.remove('hidden');
+            otherOncallTable.classList.add('hidden');
+        }
+        crisis.classList.remove('hidden');
+        crisisLabel.classList.remove('hidden');
+        nextStep.classList.remove('hidden');
+        stepBack.classList.add('hidden');
+        confirmButton.classList.add('hidden');
+        submitButton.classList.add('hidden');
+    });
+
+    confirmButton.addEventListener('click', () => {
+        title.innerText = 'Request Swap - Step 3: Confirm Swap';
+        if (crisis.checked) {
+            otherCrisisTable.classList.add('hidden');
+        } else {
+            otherOncallTable.classList.add('hidden');
+        }
+        confirmButton.classList.add('hidden');
+        submitButton.classList.remove('hidden');
+        submitButton.disabled = false;
+        // TODO: Display to user the days they selected
+        // TODO: Add a confirmation message
+    });
+    
+</script>
 {% endblock %}

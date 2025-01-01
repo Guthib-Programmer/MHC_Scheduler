@@ -2,6 +2,7 @@ body
 {
     background-color: rgb(237, 237, 237);
     padding: 0 10%;
+    font-family:'Times New Roman', Times, serif;
 }
 
 main.editUser
@@ -40,7 +41,9 @@ nav a:hover
 
 label,
 select,
-input
+input,
+button,
+form a
 {
     display: inline-block;
     font-size: 1.25rem;
@@ -55,10 +58,18 @@ label
 }
 
 select,
-input
+input,
+button,
+form a
 {
     background-color: white;
     border: 1px solid black;
+}
+
+form a
+{
+    text-decoration: none;
+    color: black;
 }
 
 form
@@ -189,4 +200,9 @@ table form
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+.hidden
+{
+    display: none;
 }
