@@ -303,6 +303,8 @@ def account():
             con = sqlite3.connect("main.db")
             con.row_factory = sqlite3.Row
             cur = con.cursor()
+            con.row_factory = lambda cursor, row: row[0]
+            listCur = con.cursor()
 
             if request.form.get("swapRequest"): # Request for swap
 
@@ -381,6 +383,22 @@ def account():
                     else:
                         return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
 
+                listCur.execute("SELECT day1 FROM requests WHERE approved = 0 OR approved IS NULL")
+                day1Ids = listCur.fetchall()
+
+                listCur.execute("SELECT day2 FROM requests WHERE approved = 0 OR approved IS NULL")
+                day2Ids = listCur.fetchall()
+
+                dayIds = day1Ids + day2Ids
+                
+                if firstDay in dayIds or secondDay in dayIds:
+                    attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap that would result in someone having both oncall and crisis on the same day."
+                    cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
+                    if adminPerms == 1:
+                        return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
+                    else:
+                        return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
+
                 cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
                 rows = cur.fetchall()
                 daysData = [dict(row) for row in rows]
@@ -439,11 +457,11 @@ def account():
                     cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,0,?,?)", (day1Id, day2Id, requested_id, personId))
                 
                 con.commit()
-                con.close()
 
-                # TODO: Show a confirmation message
                 # TODO: Send a message to the person who is being requested to swap
-                return redirect("./account")
+                
+                return redirect("./account?success=1")
+
             elif request.form.get("approveSwap"): # Approve a swap
                 if not request.form.get("id"):
                     return "Something went wrong"
@@ -585,27 +603,27 @@ def account():
             if request.args.get("swap"): # Display page for person requesting to make a new swap
 
                 # Get information of days
-                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id = ? LIMIT 50;", (personId,))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id = ? AND days.id NOT IN (SELECT day1 FROM requests WHERE approved = 0 OR approved IS NULL) AND days.id NOT IN (SELECT day2 FROM requests WHERE approved = 0 OR approved IS NULL) LIMIT 50;", (personId,))
                 rows = cur.fetchall()
                 selfOncallData = [dict(row) for row in rows]
                 for day in selfOncallData:
                     day['date'] = format_date(day['date'])
 
                 # Get information of days
-                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p1.id != ? AND p2.id != ? AND days.id NOT IN (SELECT day1 FROM requests WHERE approved = 0 OR approved IS NULL) AND days.id NOT IN (SELECT day2 FROM requests WHERE approved = 0 OR approved IS NULL) LIMIT 50;", (personId, personId))
                 rows = cur.fetchall()
                 otherOncallData = [dict(row) for row in rows]
                 for day in otherOncallData:
                     day['date'] = format_date(day['date'])
 
-                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id = ? LIMIT 50;", (personId,))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id = ? AND days.id NOT IN (SELECT day1 FROM requests WHERE approved = 0 OR approved IS NULL) AND days.id NOT IN (SELECT day2 FROM requests WHERE approved = 0 OR approved IS NULL) LIMIT 50;", (personId,))
                 rows = cur.fetchall()
                 selfCrisisData = [dict(row) for row in rows]
                 for day in selfCrisisData:
                     day['date'] = format_date(day['date'])
 
                 # Get information of days
-                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id != ? AND p2.id != ? LIMIT 50;", (personId, personId))
+                cur.execute("SELECT days.id, days.date, p1.id AS p1id, p1.name AS p1Name, p2.id AS p2id, p2.name AS p2Name FROM days JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE p2.id != ? AND p2.id != ? AND days.id NOT IN (SELECT day1 FROM requests WHERE approved = 0 OR approved IS NULL) AND days.id NOT IN (SELECT day2 FROM requests WHERE approved = 0 OR approved IS NULL) LIMIT 50;", (personId, personId))
                 rows = cur.fetchall()
                 otherCrisisData = [dict(row) for row in rows]
                 for day in otherCrisisData:
@@ -687,11 +705,22 @@ def account():
                         settings = data
                         
                     return render_template("admin.html", days=daysData, settings=settings, volunteerDays=volunteerDays)
+                elif request.args.get("success"):
+                    success_message = request.args.get("success")
+                    if success_message == '1' or success_message == 1:
+                        con.close()
+                        return render_template("admin.html", days=daysData, volunteerDays=volunteerDays, success="You have successfully requested a swap. Contact an admin if this needs to be undone.")
 
                 con.close()
                 return render_template('admin.html', days=daysData, volunteerDays=volunteerDays)
             else:
                 con.close()
+
+                if request.args.get("success"):
+                    success_message = request.args.get("success")
+                    if success_message == '1' or success_message == 1:
+                        return render_template("admin.html", days=daysData, volunteerDays=volunteerDays, success="You have successfully requested a swap. Contact an admin if this needs to be undone.")
+
                 return render_template('user.html', days=daysData, volunteerDays=volunteerDays)
     else:
         return redirect("/")
