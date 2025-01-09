@@ -10,6 +10,11 @@ from datetime import timedelta
 from datetime import datetime
 from datetime import time
 import holidays
+import requests
+import smtplib
+from email.message import EmailMessage
+# import concurrent.futures
+import threading
 
 app = Flask(__name__)
 
@@ -26,7 +31,27 @@ scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 
-# TODO: Mark past days as completed
+def send_email(to, subject, body):
+
+    print("Sending email")
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg['Subject'] = subject
+    msg['From'] = "ME"
+    msg['To'] = to
+
+    email_password = os.environ.get('ACCESS_TOKEN')  
+    
+    s = smtplib.SMTP('smtp.gmail.com', 587)
+    s.starttls()
+    s.login("hayward.ethan.66@gmail.com", email_password)
+    s.send_message(msg)
+    s.quit()
+    print("Sent mail")
+
+def send_email_async(email, subject, body):
+    thread = threading.Thread(target=send_email, args=(email, subject, body))
+    thread.start()
 
 def format_date(date_str):
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
@@ -203,10 +228,61 @@ def assignOncall():
         print("Finished")      
     con.close()
 
-# TODO: Message users of their oncalls
 @scheduler.task('cron', id='messageUser', day_of_week='*', hour=9, minute=0)
 def messageUser():
     print("Messaging user")
+
+    # Open a connection to the database
+    con = sqlite3.connect("main.db")
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    # Get the date for the next day
+    next_day = datetime.now() + timedelta(days=1)
+    next_day_str = next_day.strftime("%Y-%m-%d")
+
+    # Retrieve the on-call person's details for the next day
+    cur.execute("SELECT name, email FROM people WHERE id IN (SELECT person_id FROM days WHERE date = ?)", (next_day_str,))
+    oncall_person = cur.fetchone()
+
+    if oncall_person:
+        name = oncall_person['name']
+        email = oncall_person['email']
+
+        # Format the email content
+        subject = "Afterhours Reminder"
+        body = f"Hi {name},\n\nThis is a reminder that you are on-call tomorrow ({next_day_str}).\n\nBest regards,\nYour Team\n\nThis email was sent by a bot. Please do not reply to this email."
+
+        # Send the email
+        send_email(email, subject, body)
+    else:
+        print("No on-call person found for tomorrow.")
+
+    # Get the date for the next day
+    next_week = datetime.now() + timedelta(days=7)
+    next_week_str = next_week.strftime("%Y-%m-%d")
+
+    # Retrieve the on-call person's details for the next day
+    cur.execute("SELECT name, email FROM people WHERE id IN (SELECT person_id FROM days WHERE date = ?)", (next_week_str,))
+    oncall_person = cur.fetchone()
+
+    if oncall_person:
+        name = oncall_person['name']
+        email = oncall_person['email']
+
+        # Format the email content
+        subject = "Afterhours Reminder"
+        body = f"Hi {name},\n\nThis is a reminder that you are on-call in one week ({next_day_str}).\n\nBest regards,\nYour Team\n\nThis email was sent by a bot. Please do not reply to this email."
+
+        # Send the email
+        send_email(email, subject, body)
+    else:
+        print("No on-call person found for tomorrow.")
+
+    # Close the database connection
+    con.close()
+
+    print("Finished messaging user")
 
 @app.after_request
 def add_header(response):
@@ -336,6 +412,7 @@ def account():
                     day['date'] = format_date(day['date'])
 
 
+                # Check fields have been filled
                 if request.form.get("crisis"):
                     if not request.form.get("ownCrisis") or not request.form.get("otherCrisis"):
                         attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where one of the days is missing."
@@ -367,6 +444,7 @@ def account():
                 dayData = cur.fetchone()
                 day2DataList = dict(dayData)
 
+                # Check if days are completed
                 if day1DataList['completed'] == 1 or day2DataList['completed'] == 1:
                     attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where one of the days has already been completed."
                     cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
@@ -375,6 +453,7 @@ def account():
                     else:
                         return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
                 
+                # Check if swap results in clash
                 if day1DataList['person_id'] == day2DataList['crisis_id'] or day1DataList['crisis_id'] == day2DataList['person_id']:
                     attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap that would result in someone having both oncall and crisis on the same day."
                     cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
@@ -391,6 +470,7 @@ def account():
 
                 dayIds = day1Ids + day2Ids
                 
+                # Check if swap has already been requested
                 if firstDay in dayIds or secondDay in dayIds:
                     attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap that would result in someone having both oncall and crisis on the same day."
                     cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
@@ -398,10 +478,6 @@ def account():
                         return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Admin", controlLink="./account", warn="Something went wrong, please try again")
                     else:
                         return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
-
-                cur.execute("SELECT days.id, days.date, p1.name AS p1Name, p2.name AS p2Name FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id LIMIT 50;")
-                rows = cur.fetchall()
-                daysData = [dict(row) for row in rows]
 
                 selfDay = False
                 day1Id = 0
@@ -419,9 +495,11 @@ def account():
                     elif day1DataList['crisis_id'] == personId:
                         day1Id = firstDay
                         day2Id = secondDay
+                        requested_id = day2DataList['crisis_id']
                     elif day2DataList['crisis_id'] == personId:
                         day1Id = secondDay
                         day2Id = firstDay
+                        requested_id = day1DataList['crisis_id']
                     else:
                         attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where both days are other people's."
                         cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
@@ -431,6 +509,7 @@ def account():
                             return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
 
                     cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,1,?,?)", (day1Id, day2Id, requested_id, personId))
+
                 else:
                     if day1DataList['person_id'] == personId and day2DataList['person_id'] == personId:
                         attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where both days are their own."
@@ -443,9 +522,11 @@ def account():
                     elif day1DataList['person_id'] == personId:
                         day1Id = firstDay
                         day2Id = secondDay
+                        requested_id = day2DataList['person_id']
                     elif day2DataList['person_id'] == personId:
                         day1Id = secondDay
                         day2Id = firstDay
+                        requested_id = day1DataList['person_id']
                     else:
                         attackDetails = "Thie could be someone trying a foreign post request attack or client code manipulation. They have tried to request a swap where both days are other people's."
                         cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 3, ?)", (personId, attackDetails))
@@ -455,10 +536,28 @@ def account():
                             return render_template("swap.html", selfOncall=selfOncallData, otherOncall=otherOncallData, selfCrisis=selfCrisisData, otherCrisis=otherCrisisData, controlText="Swap", controlLink="./account", warn="Something went wrong, please try again")
 
                     cur.execute("INSERT INTO requests (day1, day2, crisis, requested_id, requested_by) VALUES (?,?,0,?,?)", (day1Id, day2Id, requested_id, personId))
-                
-                con.commit()
 
-                # TODO: Send a message to the person who is being requested to swap
+                cur.execute("SELECT name, email FROM people WHERE id = ?", (requested_id,))
+                rows = cur.fetchall()
+                requestedData = [dict(row) for row in rows]
+
+                cur.execute("SELECT name FROM people WHERE id = ?", (personId,))
+                rows = cur.fetchall()
+                personData = [dict(row) for row in rows]
+
+                selfName = personData[0]['name']
+
+                name = requestedData[0]['name']
+                email = requestedData[0]['email']
+
+                # Format the email content
+                subject = "Afterhours Reminder"
+                body = f"Hi {name},\n\n{selfName} has requested to swap one of their days with you. Please check your user panel on MHC Scheduler for details and to approve or deny this.\n\nBest regards,\nYour Team\n\nThis email was sent by a bot. Please do not reply to this email."
+
+                # Send the email
+                send_email_async(email, subject, body)
+
+                con.commit()
                 
                 return redirect("./account?success=1")
 

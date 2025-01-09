@@ -2,3 +2,5 @@ flask
 flask_session
 Flask-APScheduler
 holidays
+requests
+aiosmtplib
