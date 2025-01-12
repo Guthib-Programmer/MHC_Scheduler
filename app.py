@@ -13,14 +13,16 @@ import holidays
 import requests
 import smtplib
 from email.message import EmailMessage
-# import concurrent.futures
 import threading
+from dateutil import easter
 
 app = Flask(__name__)
 
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
 
 SETTINGS_FILE = "settings.json"
 
@@ -33,21 +35,19 @@ scheduler.start()
 
 def send_email(to, subject, body):
 
-    print("Sending email")
     msg = EmailMessage()
     msg.set_content(body)
     msg['Subject'] = subject
     msg['From'] = "ME"
     msg['To'] = to
 
-    email_password = os.environ.get('ACCESS_TOKEN')  
+    email_password = os.environ.get('ACCESS_TOKEN')
     
     s = smtplib.SMTP('smtp.gmail.com', 587)
     s.starttls()
-    s.login("hayward.ethan.66@gmail.com", email_password)
+    s.login("hayward.ethan.66@gmail.com", email_password) # REPLACE THIS EMAIL WITH YOUR OWN
     s.send_message(msg)
     s.quit()
-    print("Sent mail")
 
 def send_email_async(email, subject, body):
     thread = threading.Thread(target=send_email, args=(email, subject, body))
@@ -66,6 +66,14 @@ def assignOncall():
     listCur = con.cursor()
     con.row_factory = sqlite3.Row
     cur = con.cursor()
+
+    today = datetime.now().date() + timedelta(days=1)
+    next_week = today + timedelta(days=7)
+
+    cur.execute("SELECT crisis_id, date FROM days WHERE date BETWEEN ? AND ?", (today, next_week))
+    rows = cur.fetchall()
+
+    people_with_crisis_duty = [dict(row) for row in rows]
 
     listCur.execute("SELECT date FROM days ORDER BY id DESC LIMIT 1;")
     datesData = listCur.fetchall()
@@ -87,10 +95,9 @@ def assignOncall():
         datesData.append(datetime.strptime(datetime.today().strftime("%Y-%m-%d"), "%Y-%m-%d").date())
 
     if cut_off_date > datesData[0]:
-        print("Asigning days")
         
         # Get a list of people and their diff counts
-        cur.execute("SELECT id, diff, end_diff, weight, active, activate_date FROM people;")
+        cur.execute("SELECT id, diff, end_diff, weight, active, activate_date, sessions FROM people;")
         rows = cur.fetchall()
         peopleData = [dict(row) for row in rows]
 
@@ -112,7 +119,10 @@ def assignOncall():
                 peopleThisWeek = []
             else:
                 peopleThisWeek.append(day['person_id'])
-                print("")
+
+        work_days_to_not_assign = 0
+
+        cant_today = []
 
         while cut_off_date > datesData[0]:
 
@@ -121,6 +131,7 @@ def assignOncall():
             weekday = newDate.weekday()
             isWeekend = False
 
+            # Check if anyone is finishing or starting today
             for personOffset in range(len(peopleData)):
                 person = peopleData[personOffset]
                 if person['active']:
@@ -144,8 +155,102 @@ def assignOncall():
                             peopleData[personOffset]['end_diff'] = highestEndDiff[0]
                             con.commit()
 
-            nz_holidays = holidays.country_holidays('NZ', subdiv='OTA')
-            if newDate in nz_holidays:
+            # Special days
+
+            # New years day
+            if "01/01" in newDate.strftime("%d/%m"):
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+
+                if newDate.weekday in [5,6]:
+                    work_days_to_not_assign += 1
+
+                continue
+
+            # Day after new years
+            if "02/01" in newDate.strftime("%d/%m"):
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+
+                if newDate.weekday in [5,6]:
+                    work_days_to_not_assign += 1
+
+                continue
+
+            if "03/01" in newDate.strftime("%d/%m"):
+                if newDate.weekday() in [5,6]:
+                    cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                    con.commit()
+                    datesData = deque(datesData)
+                    datesData.appendleft(newDate)
+                    datesData = list(datesData)
+                    continue
+
+            if "04/01" in newDate.strftime("%d/%m"):
+                if newDate.weekday() == 6:
+                    cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                    con.commit()
+                    datesData = deque(datesData)
+                    datesData.appendleft(newDate)
+                    datesData = list(datesData)
+                    continue
+
+
+            # Christmas day
+            if "25/12" in newDate.strftime("%d/%m"):
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+
+                if newDate.weekday in [5,6]:
+                    work_days_to_not_assign += 1
+
+                continue
+
+            # Boxing day
+            if "26/12" in newDate.strftime("%d/%m"):
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+
+                if newDate.weekday in [5,6]:
+                    work_days_to_not_assign += 1
+
+                continue
+
+            if "27/12" in newDate.strftime("%d/%m"):
+                if newDate.weekday() in [5,6]:
+                    cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                    con.commit()
+                    datesData = deque(datesData)
+                    datesData.appendleft(newDate)
+                    datesData = list(datesData)
+                    continue
+
+            if "28/12" in newDate.strftime("%d/%m"):
+                if newDate.weekday() == 6:
+                    cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                    con.commit()
+                    datesData = deque(datesData)
+                    datesData.appendleft(newDate)
+                    datesData = list(datesData)
+                    continue
+
+            # Easter
+            easter_date = easter.easter(newDate.year)
+
+            # Good Friday
+            if easter_date - timedelta(days=2) == newDate:
                 cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
                 con.commit()
                 datesData = deque(datesData)
@@ -153,6 +258,57 @@ def assignOncall():
                 datesData = list(datesData)
                 continue
 
+            # Saturday
+            if easter_date - timedelta(days=1) == newDate:
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+                continue
+
+            # Easter Sunday
+            if easter_date == newDate:
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+                continue
+
+            # Easter Monday
+            if easter_date + timedelta(days=1) == newDate:
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+                continue
+
+            # Check if it is a holiday
+            nz_holidays = holidays.country_holidays('NZ', subdiv='OTA')
+            if newDate in nz_holidays:
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+
+                if newDate.weekday in [5,6]:
+                    work_days_to_not_assign += 1
+
+                continue
+
+            if work_days_to_not_assign > 0:
+                work_days_to_not_assign -= 1
+                cur.execute("INSERT INTO days (person_id, date, crisis_id, completed) VALUES (-1,?,?,0)", (newDate, crisisId))
+                con.commit()
+                datesData = deque(datesData)
+                datesData.appendleft(newDate)
+                datesData = list(datesData)
+                continue
+
+            # Choose how to sort people
             if weekday in [5,6]:
                 peopleData = sorted(peopleData, key=itemgetter('end_diff'))
                 isWeekend = True
@@ -166,10 +322,12 @@ def assignOncall():
             rows = cur.fetchone()
             count = list(rows)[0]
 
-            if count <= len(peopleThisWeek) + 1:
+            if count <= len(peopleThisWeek) + len(cant_today) + 1:
                 peopleThisWeek = []
 
+            # Assign new person to crisis
             if weekday == 6:
+                peopleThisWeek.append(crisisId)
                 while True:
                     crisisId += 1
                     if not any(d['id'] == crisisId for d in peopleData):
@@ -179,9 +337,9 @@ def assignOncall():
                     cur.execute("SELECT finish_date, active FROM people WHERE id = ?", (crisisId,))
                     row = cur.fetchone()
                     person_finish = dict(row)['finish_date']
-                    active = dict(row)['active']
+                    active = dict(row)['active'] if dict(row)['finish_date'] is not None else ""
                     if active == 1:
-                        if person_finish != None:
+                        if person_finish != '':
                             finish_date = datetime.strptime(person_finish, "%Y-%m-%d").date()
                             week_ahead = timedelta(days=7)
                             dt = datetime.now()
@@ -192,16 +350,70 @@ def assignOncall():
                         else:
                             break
 
+            # Loop through people to find someone to be oncall
             for personOffset in range(len(peopleData)):
 
                 # Check if person is eligible for day
                 person = peopleData[personOffset]
 
+                # Check if person has a shift today
+
+                sessionsNumber = person['sessions']
+                sessionData = []
+                daysValues = {"fri": 512, "fri": 256, "thu": 128, "thu": 64, "wed": 32, "wed": 16, "tue": 8, "tue": 4, "mon": 2, "mon": 1}
+
+                # Find the sessions the person works based on their session value
+                if sessionsNumber:
+                    for key in daysValues.keys():
+                        if sessionsNumber >= daysValues[key]:
+                            sessionsNumber -= daysValues[key]
+                            sessionName = key[:-1]
+                            sessionData.append(key)
+
+                today_abbr = newDate.strftime("%a").lower()
+
+                if today_abbr in sessionData or newDate.weekday() in [5,6]:
+                    sessionToday = True
+                else:
+                    sessionToday = False
+                    cant_today.append(person['id'])
+
+                # Check if person is eligible for day
+
                 person_is_eligible = False
-                if person['id'] != crisisId:
-                    if person['id'] not in peopleThisWeek:
-                        if person['active'] == 1:
-                            person_is_eligible = True
+
+                if sessionToday:
+                    if person['id'] != crisisId:
+                        if person['id'] not in peopleThisWeek:
+                            if person['active'] == 1:
+                                if newDate.weekday == 5:
+                                    # TODO: Not assign if person is crisis tomorrow
+                                    tomorrow_crisis = crisisId
+                                    while True:
+                                        tomorrow_crisis += 1
+                                        if not any(d['id'] == crisisId for d in peopleData):
+                                            tomorrow_crisis = 1
+                                        while not any(d['id'] == crisisId for d in peopleData):
+                                            tomorrow_crisis += 1
+                                        cur.execute("SELECT finish_date, active FROM people WHERE id = ?", (tomorrow_crisis,))
+                                        row = cur.fetchone()
+                                        person_finish = dict(row)['finish_date']
+                                        active = dict(row)['active']
+                                        if active == 1:
+                                            if person_finish != None:
+                                                finish_date = datetime.strptime(person_finish, "%Y-%m-%d").date()
+                                                week_ahead = timedelta(days=7)
+                                                dt = datetime.now()
+                                                cut_off_date_oncall = (dt + week_ahead).date()
+
+                                                if finish_date > cut_off_date_oncall:
+                                                    break
+                                            else:
+                                                break
+                                    if tomorrow_crisis != person['id']:
+                                        person_is_eligible = True
+                                else:
+                                    person_is_eligible = True
 
                 if person_is_eligible:
 
@@ -223,19 +435,70 @@ def assignOncall():
                     datesData = deque(datesData)
                     datesData.appendleft(newDate)
                     datesData = list(datesData)
+
+                    cant_today = []
                     break
         
-        print("Finished")      
+    con.close()
+
+@scheduler.task('cron', id='assignOncall', week='*', day_of_week="sat", hour=8, minute=59)
+def remind_crisis():
+    # Open a connection to the database
+    con = sqlite3.connect("main.db")
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    today = datetime.now().date() + timedelta(days=1)
+    next_week = today + timedelta(days=13)
+
+    cur.execute("SELECT crisis_id, date FROM days WHERE date BETWEEN ? AND ?", (today, next_week))
+    rows = cur.fetchall()
+
+    people_with_crisis_duty = [dict(row) for row in rows]
+
+    persons_days = {}
+
+    for person in people_with_crisis_duty:
+        person_id = person['crisis_id']
+        if persons_days.get(person_id) == None:
+            persons_days[person_id] = [person['date']]
+        else:
+            persons_days[person_id].append(person['date'])
+
+    for person in persons_days:
+        cur.execute("SELECT name, email FROM people WHERE id = ?", (person,))
+        person_data = cur.fetchone()
+
+        if person_data:
+            name = person_data['name']
+            email = person_data['email']
+
+            dates = [datetime.strptime(date, "%Y-%m-%d") for date in persons_days[person]]
+            formatted_dates = [date.strftime("%a %d") for date in dates]
+            formatted_dates = ", ".join(formatted_dates)
+
+            # Format the email content
+            subject = "Crisis Reminder"
+            body = f"Hi {name},\n\nThis is a reminder that you have crisis duty soon ({formatted_dates}).\n\nBest regards,\nYour Team\n\nThis email was sent by a bot. Please do not reply to this email."
+
+            # Send the email
+            send_email_async(email, subject, body)
+        else:
+            print("No crisis person found.")
+
     con.close()
 
 @scheduler.task('cron', id='messageUser', day_of_week='*', hour=9, minute=0)
 def messageUser():
-    print("Messaging user")
 
     # Open a connection to the database
     con = sqlite3.connect("main.db")
     con.row_factory = sqlite3.Row
     cur = con.cursor()
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cur.execute("UPDATE days SET completed = 1 WHERE date < ?", (today_str,))
+    con.commit()
 
     # Get the date for the next day
     next_day = datetime.now() + timedelta(days=1)
@@ -275,14 +538,12 @@ def messageUser():
         body = f"Hi {name},\n\nThis is a reminder that you are on-call in one week ({next_day_str}).\n\nBest regards,\nYour Team\n\nThis email was sent by a bot. Please do not reply to this email."
 
         # Send the email
-        send_email(email, subject, body)
+        send_email_async(email, subject, body)
     else:
         print("No on-call person found for tomorrow.")
 
     # Close the database connection
     con.close()
-
-    print("Finished messaging user")
 
 @app.after_request
 def add_header(response):
@@ -305,9 +566,9 @@ def index():
 
     if request.args.get('person'):
         person = request.args.get('person') # Filter days so that only the selected person shows
-        cur.execute("SELECT days.date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC LIMIT 50", (person,person))
+        cur.execute("SELECT days.date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC", (person,person))
     else: # Display all days with a limit of 50
-        cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC LIMIT 50")
+        cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC")
     rows = cur.fetchall()
     daysData = [dict(row) for row in rows]
     for day in daysData:
@@ -677,8 +938,6 @@ def account():
                     cut_off_date = datetime.now().date() + timedelta(days=weeks * 7)
                     cut_off_date_str = cut_off_date.strftime("%Y-%m-%d")
 
-                    print(f"Cut off date: {cut_off_date_str}")
-
                     # Delete days in the database that are beyond the updated number of weeks
                     cur.execute("DELETE FROM days WHERE date > ?", (cut_off_date_str,))
                     con.commit()
@@ -832,7 +1091,7 @@ def editUser():
 
     if request.method == "POST":
         # Check all the fields have been filled
-        if not request.form.get("start") or not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("number") or not request.form.get("weight") or not request.form.get("color"):
+        if not request.form.get("start") or not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("weight") or not request.form.get("color"):
             attackDetails = "Thie could be someone trying to alter the client code to complete the update user form without filling all fields"
             personId = session['user_id']
             cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 2, ?)", (personId, attackDetails))
@@ -856,7 +1115,6 @@ def editUser():
         name = request.form.get("name")
         password = request.form.get("password")
         email = request.form.get("email")
-        number = request.form.get("number")
         sessions = request.form.getlist("sessions")
         weight = int(request.form.get("weight"))
         color = request.form.get("color")
@@ -897,9 +1155,9 @@ def editUser():
             highestDiff = listCur.fetchall()
             listCur.execute("SELECT end_diff FROM people ORDER BY end_diff DESC LIMIT 1")
             highestEndDiff = listCur.fetchall()
-            cur.execute("INSERT INTO people (name, password, email, number, sessions, weight, admin, diff, end_diff, color, finish_date, active, activate_date, diff, end_diff) VALUES (?,?,?,?,?,?,?,0,0,?,?,?,?,?,?)", (name, password, email, number, sessionsNumber, weight, admin, color, endDate, active, startDate, highestDiff, highestEndDiff))
+            cur.execute("INSERT INTO people (name, password, email, sessions, weight, admin, diff, end_diff, color, finish_date, active, activate_date, diff, end_diff) VALUES (?,?,?,?,?,?,0,0,?,?,?,?,?,?)", (name, password, email, sessionsNumber, weight, admin, color, endDate, active, startDate, highestDiff, highestEndDiff))
         else: # Edit user
-            cur.execute("UPDATE people SET name = ?, password = ?, email = ?, number = ?, sessions = ?, weight = ?, admin = ?, color = ?, finish_date = ?, active = ?, activate_date = ? WHERE id = ?", (name, password, email, number, sessionsNumber, weight, admin, color, endDate, active, startDate, userId))
+            cur.execute("UPDATE people SET name = ?, password = ?, email = ?, sessions = ?, weight = ?, admin = ?, color = ?, finish_date = ?, active = ?, activate_date = ? WHERE id = ?", (name, password, email, sessionsNumber, weight, admin, color, endDate, active, startDate, userId))
 
         con.commit()
         con.close()

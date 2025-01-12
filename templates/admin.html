@@ -82,7 +82,7 @@
     <hr>
     {% if pendingSwaps is defined %}
     <div class="adminExpand">
-        <h2>Pending Swaps (##)</h2>
+        <h2>Pending Swaps</h2>
         <a href="?">Minimize</a><br>
     </div>
     <table>
@@ -128,7 +128,7 @@
     <hr>
     {% if users is defined %}
     <div class="adminExpand">
-        <h2>Users (##)</h2>
+        <h2>Users</h2>
         <a href="./editUser?id=0">Add new user</a>
         <a href="?">Minimize</a><br>
     </div>
@@ -136,7 +136,6 @@
         <tr>
             <th>Name</th>
             <th>Email</th>
-            <th>Phone Number</th>
             <th>Oncall Weight</th>
             <th>Admin</th>
             <th>Edit</th>
@@ -145,7 +144,6 @@
         <tr>
             <td style="color: {{ user['color'] }}">{{ user['name'] }}</td>
             <td>{{ user['email'] }}</td>
-            <td>{{ user['number'] }}</td>
             <td>{{ user['weight'] }}</td>
             {% if user['admin'] == 1 %}
             <td>Admin</td>
@@ -202,7 +200,7 @@
     </table>
     {% else %}
     <div class="adminExpand">
-        <h2>Suspicious Activity (## Unread)</h2>
+        <h2>Suspicious Activity</h2>
         <a href="?suspicious=1">Expand</a><br>
     </div>
     {% endif %}
@@ -261,14 +259,12 @@
             <th>Date</th>
             <th>Oncall</th>
             <th>Crisis</th>
-            <th>Oncall/Crisis Shift</th>
         </tr>
         {% for day in oncallHistory %}
         <tr>
             <td>{{ day['date'] }}</td>
             <td>{{ day['person1'] }}</td>
             <td>{{ day['person2'] }}</td>
-            <td>TODO</td> <!-- TODO: CHECK IF THIS FIELD IS REQURIED AND MAKE IT -->
         </tr>
         {% endfor %}
     </table>
@@ -286,7 +282,7 @@
     </div>
     <form action="#" method="post">
         <label for="scheduleAhead">Weeks to schedule in advance:</label>
-        <input type="number" name="weeks" id="sceduleAhead" value="{{ settings['weeks'] }}">
+        <input min="1" max="52" type="number" name="weeks" id="sceduleAhead" value="{{ settings['weeks'] }}">
         <input type="submit" value="Submit" name="updateWeeks">
     </form>
     {% else %}

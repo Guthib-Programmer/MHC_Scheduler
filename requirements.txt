@@ -4,3 +4,5 @@ Flask-APScheduler
 holidays
 requests
 aiosmtplib
+python-dateutil
+gunicorn
