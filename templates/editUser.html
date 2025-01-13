@@ -19,8 +19,8 @@
         <input type="hidden" name="new" value="1">
         <input required autocomplete="off" type="text" name="name" placeholder="Name">
         <input required autocomplete="off" type="password" name="password" placeholder="Password"id="password">
-        <span><input type="checkbox" name="showpassword" id="showPassword" onclick="togglePasswordVisibility()"><label for="showPassword">Show Password</label></span>
         <input required autocomplete="off" type="email" name="email" placeholder="Email">
+        <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" id="colorInput">
         <h3>Sessions</h3>
         <div class="sessions">
             <div>
@@ -38,23 +38,25 @@
                 <input type="checkbox" name="sessions" value="512" id="fa"><label for="fa">Friday Afternoon</label>
             </div>
         </div>
-        <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
-        <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
-        <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" id="colorInput">
-        <div class="sessions">
-            <label for="active">Start Now: </label>
-            <input type="radio" name="start" value="now" id="active">
-        </div>
-        <div class="sessions">
-            <label for="startDateCheck">Start Date: </label>
-            <input type="radio" name="start" id="startDateCheck">
-            <input type="date" name="startDate" value="date" placeholder="Start Date" id="DatePicker">
-        </div>
-        <div class="sessions">
-            <label for="endDateCheck">End Date:  </label>
-            <input type="checkbox" name="endDateCheck" id="endDateCheck">
-            <input type="date" name="endDate" placeholder="Start Date" id="endDatePicker">
-        </div>
+        <span><input checked onclick="frequencyVisibility()" type="checkbox" name="updateWeight" id="weight"><label for="weight">Set oncall frequency by number of sessions</label></span>
+        <input style="display: none;" autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
+        <table class="dates">
+            <tr>
+                <td><label for="active">Active: </label></td>
+                <td><input checked type="radio" name="start" value="now" id="active"></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td><label for="startDateCheck">Start Date: </label></td>
+                <td><input type="radio" name="start" id="startDateCheck"></td>
+                <td><input type="date" name="startDate" id="DatePicker"></td>
+            </tr>
+            <tr>
+                <td><label for="endDateCheck">End Date: </label></td>
+                <td><input checked type="checkbox" name="endDateCheck" id="endDateCheck"></td>
+                <td><input type="date" name="endDate" id="endDatePicker"></td>
+            </tr>
+        </table>
         <span><input type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         <input type="submit" value="Submit">
 
@@ -68,8 +70,8 @@
         {% endif %}
         <input required autocomplete="off" type="text" name="name" placeholder="Name" value="{{ user['name'] }}">
         <input required autocomplete="off" type="password" name="password" placeholder="Password" value="{{ user['password'] }}" id="password">
-        <span><input type="checkbox" name="showpassword" id="showPassword" onclick="togglePasswordVisibility()"><label for="showPassword">Show Password</label></span>
         <input required autocomplete="off" type="email" name="email" placeholder="Email" value="{{ user['email'] }}">
+        <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" value="{{ user['color'] }}" id="colorInput">
         <h3>Sessions</h3>
         <div class="sessions">
             <div>
@@ -87,37 +89,25 @@
                 <input {{ sessionData['fa'] }} type="checkbox" name="sessions" value="512" id="fa"><label for="fa">Friday Afternoon</label>
             </div>
         </div>
-        <span><input checked type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall weight based on sessions</label></span>
-        <input required autocomplete="off" type="number" name="weight" min="0" max="10" step="1" placeholder="Oncall Weight (1-10)" value="0">
-        <input required autocomplete="off" type="text" name="color" placeholder="HTML Color" value="{{ user['color'] }}" id="colorInput">
-        <div class="sessions">
-            <label for="active">Active: </label>
-            {% if user['active'] == 1 %}
-            <input checked type="radio" name="start" value="now" id="active">
-            {% else %}
-            <input type="radio" name="start" value="now" id="active">
-            {% endif %}
-        </div>
-        <div class="sessions">
-            <label for="startDateCheck">Start Date: </label>
-            {% if user['activate_date'] != None %}
-            <input checked type="radio" name="start" id="startDateCheck">
-            <input value="{{ user['activate_date'] }}" type="date" name="startDate" id="DatePicker">
-            {% else %}
-            <input type="radio" name="start" id="startDateCheck">
-            <input type="date" name="startDate" id="DatePicker">
-            {% endif %}
-        </div>
-        <div class="sessions">
-            <label for="endDateCheck">End Date:  </label>
-            {% if user['finish_date'] is defined %}
-            <input checked type="checkbox" name="endDateCheck" id="endDateCheck">
-            <input value="{{ user['finish_date'] }}" type="date" name="endDate" id="endDatePicker">
-            {% else %}
-            <input type="checkbox" name="endDateCheck" id="endDateCheck">
-            <input type="date" name="endDate" placeholder="Start Date" id="endDatePicker">
-            {% endif %}
-        </div>
+        <span><input checked onclick="frequencyVisibility();" type="checkbox" name="updateWeight" id="weight"><label for="weight">Update oncall frequency by number of sessions</label></span>
+        <input style="display: none;" autocomplete="off" type="number" id="weightInput" name="weight" min="0" max="10" step="1" placeholder="Oncall Frequency (1-10)">
+        <table class="dates">
+            <tr>
+                <td><label for="active">Active: </label></td>
+                <td><input checked type="radio" name="start" value="now" id="active"></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td><label for="startDateCheck">Start Date: </label></td>
+                <td><input type="radio" name="start" id="startDateCheck"></td>
+                <td><input type="date" name="startDate" id="DatePicker"></td>
+            </tr>
+            <tr>
+                <td><label for="endDateCheck">End Date: </label></td>
+                <td><input checked type="checkbox" name="endDateCheck" id="endDateCheck"></td>
+                <td><input type="date" name="endDate" id="endDatePicker"></td>
+            </tr>
+        </table>
         {% if user['admin'] == 1 %}
         <span><input checked type="checkbox" name="admin" id="admin"><label for="admin">Admin Permissions</label></span>
         {% else %}
@@ -128,12 +118,17 @@
     {% endif %}
 </main>
 <script>
-    function togglePasswordVisibility() {
-        var x = document.getElementById("password");
-        if (x.type === "password") {
-            x.type = "text";
-        } else {
-            x.type = "password";
+    function frequencyVisibility()
+    {
+        updateFrequencyInput = document.getElementById("weight");
+        frequencyInput = document.getElementById("weightInput");
+        if (!updateFrequencyInput.checked)
+        {
+            frequencyInput.style.display = "block";
+        }
+        else
+        {
+            frequencyInput.style.display = "none";
         }
     }
 

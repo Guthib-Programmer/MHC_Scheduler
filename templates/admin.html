@@ -282,7 +282,7 @@
     </div>
     <form action="#" method="post">
         <label for="scheduleAhead">Weeks to schedule in advance:</label>
-        <input min="1" max="52" type="number" name="weeks" id="sceduleAhead" value="{{ settings['weeks'] }}">
+        <input min="13" max="52" type="number" name="weeks" id="sceduleAhead" value="{{ settings['weeks'] }}">
         <input type="submit" value="Submit" name="updateWeeks">
     </form>
     {% else %}

@@ -11,13 +11,13 @@
         {% if controlText is defined %}
         <a href="{{ controlLink }}">{{ controlText }}</a>
         {% endif %}
+        <a href="./" class="print">Table View</a>
+        <a href="javascript:if(window.print)window.print()" class="print">Print</a>
         <a href="signin">Account</a>
     </div>
     
 </nav>
 <main>
-    <a href="./" class="print">Table View</a>
-    <a href="javascript:if(window.print)window.print()" class="print">Print</a>
     <div class="printTableContainer">
         {% for week in weeks %}
         <table class="printTable">

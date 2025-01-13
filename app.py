@@ -1118,7 +1118,7 @@ def editUser():
 
     if request.method == "POST":
         # Check all the fields have been filled
-        if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("weight") or not request.form.get("color"):
+        if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("color"):
             attackDetails = "Thie could be someone trying to alter the client code to complete the update user form without filling all fields"
             personId = session['user_id']
             cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 2, ?)", (personId, attackDetails))
@@ -1126,6 +1126,9 @@ def editUser():
             cur.close()
             return render_template('editUser.html', user=userData, sessionData=sessionData, warn="Not all fields were filled")
         
+        if not request.form.get("updateWeight") and not request.form.get("weight"):
+            return render_template('editUser.html', user=userData, sessionData=sessionData, warn="Not all fields were filled")
+
         if not request.form.get("start"):
             return render_template('edituser.html', isNew="yes", user=userData, sessionData=sessionData, warn="Please select a start date")
         
@@ -1149,12 +1152,14 @@ def editUser():
         password = request.form.get("password")
         email = request.form.get("email")
         sessions = request.form.getlist("sessions")
-        weight = int(request.form.get("weight"))
         color = request.form.get("color")
         start = request.form.get("start")
         weightAdd = 0
         admin = 0
         sessionsNumber = 0
+
+        if not request.form.get("updateWeight"):
+            weight = int(request.form.get("weight"))
         
         # Check if the weight checkbox is checked
         if request.form.get("updateWeight"):
