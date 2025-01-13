@@ -1,6 +1,10 @@
 nav,
-form,
-.print
+a
 {
     display: none;
+}
+
+.hidden
+{
+    display: block;
 }

@@ -26,8 +26,8 @@
         </select>
         <input type="submit" value="Search">
     </form>
-    <a href="javascript:if(window.print)window.print()" class="print">Print</a>
-    <table>
+    <a href="./print" class="print">Print View</a>
+    <table class="hiddenPrint">
         <tr>
             <th>Day</th>
             <th>Oncall</th>
@@ -46,4 +46,29 @@
         {% endfor %}
     </table>
 </main>
+<div class="hidden">
+    <h2>On-call and Crisis Schedule</h2>
+    <table class="schedule-table">
+    <thead>
+        <tr>
+            <th>Day</th>
+            <th>On-call</th>
+            <th>Crisis</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for day in days %}
+        <tr>
+            <td>{{ day['date'] }}</td>
+            {% if day['oncall'] != None %}
+            <td style="color: {{ day['oncallColor'] }}">{{ day['oncall'] }}</td>
+            {% else %}
+            <td>Volunteer</td>
+            {% endif %}
+            <td style="color: {{ day['crisisColor'] }}">{{ day['crisis'] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    </table>
+</div>
 {% endblock %}

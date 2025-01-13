@@ -206,3 +206,35 @@ table form
 {
     display: none;
 }
+
+.hiddenPrint
+{
+    display: table;
+}
+
+.hiddenPrint {
+    margin-top: 20px;
+}
+
+.printTableContainer
+{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.printTable {
+    display: table;
+    flex: 1 0 20%;
+    margin: 1%;
+    page-break-inside: avoid;
+}
+
+.printTable td, .printTable th {
+    border: none;
+    padding: 5px;
+    font-size: 0.75rem;
+    text-align: center;
+    white-space: nowrap;
+}

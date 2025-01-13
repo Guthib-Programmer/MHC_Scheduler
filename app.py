@@ -55,7 +55,7 @@ def send_email_async(email, subject, body):
 
 def format_date(date_str):
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    return date_obj.strftime("%a %d %B %Y")
+    return date_obj.strftime("%a %d %b")
 
 @scheduler.task('cron', id='assignOncall', week='*', day_of_week="mon", hour=8, minute=59)
 def assignOncall():
@@ -567,7 +567,7 @@ def index():
     if request.args.get('person'):
         person = request.args.get('person') # Filter days so that only the selected person shows
         cur.execute("SELECT days.date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id WHERE (days.person_id = ? OR days.crisis_id = ?) AND days.completed = 0 ORDER BY days.id ASC", (person,person))
-    else: # Display all days with a limit of 50
+    else: # Display all days
         cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC")
     rows = cur.fetchall()
     daysData = [dict(row) for row in rows]
@@ -1085,6 +1085,7 @@ def account():
     
 @app.route("/editUser", methods=['GET', 'POST'])
 def editUser():
+
     con = sqlite3.connect("main.db")
     con.row_factory = sqlite3.Row
     cur = con.cursor()
@@ -1194,3 +1195,43 @@ def editUser():
             return render_template('editUser.html', user=userData, sessionData=sessionData)
         else:
             return redirect("./account")
+        
+@app.route("/print", methods=['GET'])
+def printView():
+
+    # Open a connection to the database
+    con = sqlite3.connect("main.db")
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    # Get all the names of people for the dropdown filter
+    cur.execute("SELECT name, id FROM people;")
+    rows = cur.fetchall()
+    peopleData = [dict(row) for row in rows]
+
+    cur.execute("SELECT date, p1.id AS oncallId, p1.name AS oncall, p1.color AS oncallColor, p2.name AS crisis, p2.color AS crisisColor FROM days LEFT JOIN people p1 ON days.person_id = p1.id JOIN people p2 ON days.crisis_id = p2.id AND days.completed = 0 ORDER BY days.id ASC")
+    rows = cur.fetchall()
+    daysData = [dict(row) for row in rows]
+    weeksData = [[]]
+    currentWeek = 0
+    for day in daysData:
+        day['date'] = format_date(day['date'])
+        weeksData[currentWeek].append(day)
+        if "Sat" in day['date']:
+            currentWeek += 1
+            weeksData.append([])
+
+
+    con.close()
+
+    # Render home page with data based on if user is signed in and admin or not
+    if session.get("admin") != None:
+        adminPerms = session['admin']
+        if adminPerms == 1:
+            return render_template('print.html', weeks=weeksData, accountLink="./signin", controlText="Admin", controlLink="./account")
+        else:
+            return render_template('print.html', weeks=weeksData, accountLink="./signin", controlText="Swaps", controlLink="./account")
+    else:
+        return render_template('print.html', weeks=weeksData, accountLink="./signin")
+    
+    return render_template('print.html')

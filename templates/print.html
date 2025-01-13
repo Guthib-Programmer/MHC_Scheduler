@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block body %}
+<nav> <!-- Navbar -->
+    <a href="./">MHC Scheduler</a>
+    <div>
+        {% if controlText is defined %}
+        <a href="{{ controlLink }}">{{ controlText }}</a>
+        {% endif %}
+        <a href="signin">Account</a>
+    </div>
+    
+</nav>
+<main>
+    <a href="./" class="print">Table View</a>
+    <a href="javascript:if(window.print)window.print()" class="print">Print</a>
+    <div class="printTableContainer">
+        {% for week in weeks %}
+        <table class="printTable">
+            <tr>
+                <th>Day</th>
+                <th>Oncall</th>
+                <th>Crisis</th>
+            </tr>
+            {% for day in week %}
+            <tr>
+                <td>{{ day['date'] }}</td>
+                {% if day['oncall'] != None %}
+                <td style="color: {{ day['oncallColor'] }}">{{ day['oncall'] }}</td>
+                {% else %}
+                <td>Volunteer</td>
+                {% endif %}
+                <td style="color: {{ day['crisisColor'] }}">{{ day['crisis'] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endfor %}
+    </div>
+</main>
+{% endblock %}
