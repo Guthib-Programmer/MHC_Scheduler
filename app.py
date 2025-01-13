@@ -121,6 +121,11 @@ def assignOncall():
                 peopleThisWeek.append(day['person_id'])
 
         work_days_to_not_assign = 0
+        ignore_shifts = False
+
+        cur.execute("SELECT COUNT(*) FROM people;")
+        rows = cur.fetchone()
+        count = list(rows)[0]
 
         cant_today = []
 
@@ -131,19 +136,22 @@ def assignOncall():
             weekday = newDate.weekday()
             isWeekend = False
 
+            print(f"assigning oncall for {newDate}")
+
             # Check if anyone is finishing or starting today
             for personOffset in range(len(peopleData)):
+                print("Start and finish")
                 person = peopleData[personOffset]
                 if person['active']:
-                    if person['activate_date']:
-                        if datetime.strptime(person['activate_date'], "%Y-%m-%d").date() < newDate:
+                    if person.get('finish_date'):
+                        if datetime.strptime(person['finish_date'], "%Y-%m-%d").date() < newDate:
                             cur.execute("UPDATE people SET active = 0, activate_date = NULL WHERE id = ?", (person['id'],))
                             peopleData[personOffset]['active'] = 0
                             peopleData[personOffset]['activate_date'] = None
                             con.commit()
                 else:
-                    if person['finish_date']:
-                        if datetime.strptime(person['finish_date'], "%Y-%m-%d").date() < newDate:
+                    if person.get('activate_date'):
+                        if datetime.strptime(person['activate_date'], "%Y-%m-%d").date() < newDate:
                             listCur.execute("SELECT diff FROM people ORDER BY diff DESC LIMIT 1")
                             highestDiff = listCur.fetchall()
                             listCur.execute("SELECT end_diff FROM people ORDER BY end_diff DESC LIMIT 1")
@@ -318,9 +326,8 @@ def assignOncall():
             if weekday == 0:
                 peopleThisWeek = []
 
-            cur.execute("SELECT COUNT(*) FROM people;")
-            rows = cur.fetchone()
-            count = list(rows)[0]
+            if count <= len(cant_today) + 1:
+                ignore_shifts = True
 
             if count <= len(peopleThisWeek) + len(cant_today) + 1:
                 peopleThisWeek = []
@@ -329,17 +336,17 @@ def assignOncall():
             if weekday == 6:
                 peopleThisWeek.append(crisisId)
                 while True:
+                    print(f"Finding Crisis, current attempt: {crisisId}")
                     crisisId += 1
                     if not any(d['id'] == crisisId for d in peopleData):
                         crisisId = 1
-                    while not any(d['id'] == crisisId for d in peopleData):
-                        crisisId += 1
                     cur.execute("SELECT finish_date, active FROM people WHERE id = ?", (crisisId,))
-                    row = cur.fetchone()
-                    person_finish = dict(row)['finish_date']
-                    active = dict(row)['active'] if dict(row)['finish_date'] is not None else ""
+                    row = dict(cur.fetchone())
+                    person_finish = row['finish_date']
+                    active = row['active']
+                    print(f"Active is {active} and type is {type(active)}")
                     if active == 1:
-                        if person_finish != '':
+                        if person_finish != None:
                             finish_date = datetime.strptime(person_finish, "%Y-%m-%d").date()
                             week_ahead = timedelta(days=7)
                             dt = datetime.now()
@@ -352,6 +359,8 @@ def assignOncall():
 
             # Loop through people to find someone to be oncall
             for personOffset in range(len(peopleData)):
+
+                print("checking person")
 
                 # Check if person is eligible for day
                 person = peopleData[personOffset]
@@ -372,7 +381,7 @@ def assignOncall():
 
                 today_abbr = newDate.strftime("%a").lower()
 
-                if today_abbr in sessionData or newDate.weekday() in [5,6]:
+                if today_abbr in sessionData or newDate.weekday() in [5,6] or ignore_shifts:
                     sessionToday = True
                 else:
                     sessionToday = False
@@ -609,6 +618,21 @@ def signin():
         con.row_factory = sqlite3.Row
         cur = con.cursor()
 
+        cur.execute("SELECT COUNT(*) FROM people WHERE admin = 1")
+        rows = cur.fetchone()
+        admin_count = list(rows)[0]
+
+        if admin_count == 0:
+            if enteredName == "admin" and enteredPassword == "admin":
+                # Log in user with sessions
+                session['user_id'] = -1
+                session['name'] = 'admin'
+                session['password'] = 'admin'
+                session['admin'] = 1
+
+                return redirect("/")
+                con.close()
+
         # Get all people with the given username and password
         cur.execute("SELECT id, name, password, admin FROM people WHERE name = ? AND password = ?;", (enteredName, enteredPassword))
         rows = cur.fetchall()
@@ -821,7 +845,6 @@ def account():
                 con.commit()
                 
                 return redirect("./account?success=1")
-
             elif request.form.get("approveSwap"): # Approve a swap
                 if not request.form.get("id"):
                     return "Something went wrong"
@@ -1090,9 +1113,12 @@ def editUser():
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
+    userData = request.form.to_dict()
+    sessionData = request.form.get("sessions")
+
     if request.method == "POST":
         # Check all the fields have been filled
-        if not request.form.get("start") or not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("weight") or not request.form.get("color"):
+        if not request.form.get("name") or not request.form.get("password") or not request.form.get("email") or not request.form.get("weight") or not request.form.get("color"):
             attackDetails = "Thie could be someone trying to alter the client code to complete the update user form without filling all fields"
             personId = session['user_id']
             cur.execute("INSERT INTO suspicious (person_id, timestamp, type, details) VALUES (?, datetime(), 2, ?)", (personId, attackDetails))
@@ -1100,6 +1126,12 @@ def editUser():
             cur.close()
             return render_template('editUser.html', user=userData, sessionData=sessionData, warn="Not all fields were filled")
         
+        if not request.form.get("start"):
+            return render_template('edituser.html', isNew="yes", user=userData, sessionData=sessionData, warn="Please select a start date")
+        
+        if not request.form.get("sessions"):
+            return render_template('edituser.html', isNew="yes", user=userData, sessionData=sessionData, warn="Please select sessions")
+
         # Get information from filled fields
         if not request.form.get("new") and request.form.get("id"):        
             userId = request.form.get("id")
@@ -1153,10 +1185,10 @@ def editUser():
             con.row_factory = lambda cursor, row: row[0]
             listCur = con.cursor()
             listCur.execute("SELECT diff FROM people ORDER BY diff DESC LIMIT 1")
-            highestDiff = listCur.fetchall()
+            highestDiff = listCur.fetchall()[0]
             listCur.execute("SELECT end_diff FROM people ORDER BY end_diff DESC LIMIT 1")
-            highestEndDiff = listCur.fetchall()
-            cur.execute("INSERT INTO people (name, password, email, sessions, weight, admin, diff, end_diff, color, finish_date, active, activate_date, diff, end_diff) VALUES (?,?,?,?,?,?,0,0,?,?,?,?,?,?)", (name, password, email, sessionsNumber, weight, admin, color, endDate, active, startDate, highestDiff, highestEndDiff))
+            highestEndDiff = listCur.fetchall()[0]
+            cur.execute("INSERT INTO people (name, password, email, sessions, weight, admin, diff, end_diff, color, finish_date, active, activate_date, diff, end_diff) VALUES (?,?,?,?,?,?,0,0,?,?,?,?,?,?)", (name, password, email, sessionsNumber, weight, admin, color, endDate or None, active, startDate or None, highestDiff, highestEndDiff))
         else: # Edit user
             cur.execute("UPDATE people SET name = ?, password = ?, email = ?, sessions = ?, weight = ?, admin = ?, color = ?, finish_date = ?, active = ?, activate_date = ? WHERE id = ?", (name, password, email, sessionsNumber, weight, admin, color, endDate, active, startDate, userId))
 

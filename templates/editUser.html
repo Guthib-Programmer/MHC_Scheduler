@@ -61,7 +61,11 @@
     {% else %}
     <form action="./editUser?id={{ user['id'] }}" method="post" class="editUser">
         <p style="color:red; text-align: center; font-size: 1.5rem;">{{ warn }}</p>
+        {% if isNew is defined %}
+        <input type="hidden" name="new" value="1">
+        {% else %}
         <input type="hidden" name="id" value="{{ user['id'] }}">
+        {% endif %}
         <input required autocomplete="off" type="text" name="name" placeholder="Name" value="{{ user['name'] }}">
         <input required autocomplete="off" type="password" name="password" placeholder="Password" value="{{ user['password'] }}" id="password">
         <span><input type="checkbox" name="showpassword" id="showPassword" onclick="togglePasswordVisibility()"><label for="showPassword">Show Password</label></span>

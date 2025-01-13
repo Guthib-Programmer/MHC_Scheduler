@@ -121,7 +121,7 @@
     </table>
     {% else %}
     <div class="adminExpand">
-        <h2>Pending Swaps (##)</h2>
+        <h2>Pending Swaps</h2>
         <a href="?pending=1">Expand</a><br>
     </div>
     {% endif %}
@@ -156,17 +156,17 @@
     </table>
     {% else %}
     <div class="adminExpand">
-        <h2>Users (##)</h2>
+        <h2>Users</h2>
         <a href="?users=1">Expand</a><br>
     </div>
     {% endif %}
     <hr>
     {% if suspicious is defined %}
     <div class="adminExpand">
-        <h2>Suspicious Activity (## Unread)</h2>
+        <h2>Suspicious Activity</h2>
         <a href="?">Minimize</a><br>
     </div>
-    Nothing recorded here is concrete proof that the end-user is trying to hack. It could be a result of bad-programming, end-user mistakes or other.
+    Anything listed here is likely an error in the code but may be worth following up.
     <table>
         <tr>
             <th>Name</th>
